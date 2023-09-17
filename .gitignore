@@ -1,0 +1,4 @@
+/target
+/tests
+*.mp4
+ext/*

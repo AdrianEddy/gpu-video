@@ -1,0 +1,40 @@
+[package]
+name = "gpu-video"
+version = "0.0.1"
+edition = "2021"
+authors = ["Adrian <adrian.eddy@gmail.com>"]
+license = "MIT OR Apache-2.0"
+description = "Library to decode and encode videos with focus on GPU"
+repository = "https://github.com/AdrianEddy/gpu-video"
+readme = "README.md"
+
+[dependencies]
+thiserror = "1"
+log = "0.4"
+simple-log = "1.6"
+enum_delegate = "0.2"
+crc32fast = "1.3"
+parking_lot = "0.12"
+lazy_static = "1.4"
+ffmpeg-next = { version = "6.0.0", default-features = false, features = ["codec", "filter", "format", "software-resampling", "software-scaling"] }
+
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies.metal]
+version = "0.26.0"
+[target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies.objc-foundation]
+version = "0.1.1"
+[target.'cfg(target_os = "windows")'.dependencies.windows]
+version = "0.51"
+features = [ "Win32_System_Com", "Win32_System_Console", "Win32_System_SystemServices", "Win32_UI_Shell", "Win32_Foundation",
+             "Win32_Graphics_Dwm", "Win32_Graphics_Direct3D", "Win32_Graphics_Direct3D9", "Win32_Graphics_Direct3D11", "Win32_Graphics_Dxgi_Common", "Win32_Graphics_Dxgi", "Win32_Security" ]
+
+[lib]
+name = "gpu_video"
+path = "src/lib.rs"
+
+[[bin]]
+name = "gpu_video"
+path = "src/bin.rs"
+
+[patch.crates-io]
+ffmpeg-next = { git = "https://github.com/AdrianEddy/rust-ffmpeg.git" }
+ffmpeg-sys-next = { git = "https://github.com/AdrianEddy/rust-ffmpeg-sys.git" }

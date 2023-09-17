@@ -249,3 +249,17 @@ impl AudioFrameInterface for FfmpegAudioFrame {
         0
     }
 }
+
+#[cfg(any(target_os = "macos", target_os = "ios"))]
+mod mac_ffi {
+    #[derive(Debug, Copy, Clone)]
+    pub enum __CVBuffer { }
+    pub type CVBufferRef = *mut __CVBuffer;
+    pub type CVImageBufferRef = CVBufferRef;
+    pub type CVPixelBufferRef = CVImageBufferRef;
+
+    #[link(name = "CoreVideo", kind = "framework")]
+    extern "C" {
+        pub fn CVPixelBufferGetPixelFormatType(pixelBuffer: CVPixelBufferRef) -> u32;
+    }
+}

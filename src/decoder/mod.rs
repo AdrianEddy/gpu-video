@@ -41,7 +41,7 @@ pub trait DecoderInterface {
 
     fn next_frame(&mut self) -> Option<Frame>;
 
-    fn get_video_info(&self, path: &str) -> Result<VideoInfo, VideoProcessingError>;
+    fn get_video_info(&self) -> Result<VideoInfo, VideoProcessingError>;
 }
 
 pub struct Decoder {
@@ -60,6 +60,9 @@ impl Decoder {
     }
     pub fn next_frame(&mut self) -> Option<Frame> {
         self.inner.next_frame()
+    }
+    pub fn get_video_info(&mut self) -> Result<VideoInfo, VideoProcessingError> {
+        self.inner.get_video_info()
     }
 }
 

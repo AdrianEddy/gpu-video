@@ -42,8 +42,27 @@ impl DecoderInterface for FfmpegDecoder {
         true
     }
 
-    fn get_video_info(&self, path: &str) -> Result<VideoInfo, VideoProcessingError> {
-        Ok(VideoInfo::default())
+    fn get_video_info(&self) -> Result<VideoInfo, VideoProcessingError> {
+        if let Some(stream) = self.context.streams().best(media::Type::Video) {
+            let codec = codec::context::Context::from_parameters(stream.parameters())?;
+            if let Ok(video) = codec.decoder().video() {
+                let mut bitrate = video.bit_rate();
+                if bitrate == 0 { bitrate = self.context.bit_rate() as usize; }
+
+                let mut frames = stream.frames() as usize;
+                if frames == 0 { frames = (stream.duration() as f64 * f64::from(stream.time_base()) * f64::from(stream.rate())) as usize; }
+
+                return Ok(VideoInfo {
+                    duration_ms: stream.duration() as f64 * f64::from(stream.time_base()) * 1000.0,
+                    frame_count: frames,
+                    fps: f64::from(stream.rate()), // or avg_frame_rate?
+                    width: video.width(),
+                    height: video.height(),
+                    bitrate: bitrate as f64 / 1024.0 / 1024.0,
+                });
+            }
+        }
+        Err(ffmpeg_next::Error::StreamNotFound.into())
     }
 
     fn next_frame(&mut self) -> Option<Frame> {
@@ -141,12 +160,15 @@ impl DecoderInterface for FfmpegDecoder {
 }
 
 impl FfmpegDecoder {
-    pub fn new(path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
+    pub fn new(mut path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
         ffmpeg_next::init()?;
 
         let mut options_avdict = Dictionary::new();
         for (k, v) in &options.custom_options { options_avdict.set(&k, &v); }
-
+        if path.starts_with("fd:") {
+            options_avdict.set("fd", &path[3..]); 
+            path = "fd:".into();
+        }
         let mut input_context = format::input_with_dictionary(&path, options_avdict)?;
 
         // format::context::input::dump(&input_context, 0, Some(path));

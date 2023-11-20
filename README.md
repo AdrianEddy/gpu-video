@@ -50,6 +50,7 @@ while let Some(mut frame) = decoder.next_frame() {
     - [x] ffmpeg
     - [ ] BRAW
     - [ ] RED RAW
+    - [ ] GStreamer
     - [ ] VideoToolbox
     - [ ] MFT
     - [ ] MediaCodec
@@ -58,9 +59,11 @@ while let Some(mut frame) = decoder.next_frame() {
     - [ ] ffmpeg
     - [ ] zimg
     - [ ] wgpu
+    - [ ] GStreamer
 
 - Encoders
     - [ ] ffmpeg
+    - [ ] GStreamer
     - [ ] VideoToolbox
     - [ ] MFT
     - [ ] MediaCodec
@@ -72,6 +75,7 @@ Future plans, separate crates:
     - [ ] cpu
     - [ ] wgpu
     - [ ] CUDA
+    - [ ] OpenCL
 - Player:
     - play
     - pause

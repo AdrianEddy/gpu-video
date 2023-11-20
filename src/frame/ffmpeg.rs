@@ -90,7 +90,7 @@ impl VideoFrameInterface for FfmpegVideoFrame {
                     b"2vuy" => PixelFormat::UYVY422, // kCVPixelFormatType_422YpCbCr8                    | Component Y'CbCr 8-bit 4:2:2, ordered Cb Y'0 Cr Y'1
                     b"422f" => PixelFormat::NV16,    // kCVPixelFormatType_422YpCbCr8BiPlanarFullRange   |
                     b"422v" => PixelFormat::NV16,    // kCVPixelFormatType_422YpCbCr8BiPlanarVideoRange  |
-                    b"y416" => PixelFormat::AYUV64,  // kCVPixelFormatType_4444AYpCbCr16                 | Component Y'CbCrA 16-bit 4:4:4:4, ordered A Y' Cb Cr, full range alpha, video range Y'CbCr, 16-bit little-endian samples.
+                    b"y416" => PixelFormat::AYUV64LE,// kCVPixelFormatType_4444AYpCbCr16                 | Component Y'CbCrA 16-bit 4:4:4:4, ordered A Y' Cb Cr, full range alpha, video range Y'CbCr, 16-bit little-endian samples.
                     b"xf44" => PixelFormat::P410LE,  // kCVPixelFormatType_444YpCbCr10BiPlanarFullRange  | 2 plane YCbCr10 4:4:4, each 10 bits in the MSBs of 16bits, full-range (Y range 0-1023)
                     b"x444" => PixelFormat::P410LE,  // kCVPixelFormatType_444YpCbCr10BiPlanarVideoRange | 2 plane YCbCr10 4:4:4, each 10 bits in the MSBs of 16bits, video-range (luma=[64,940] chroma=[64,960])
                     b"sv44" => PixelFormat::P416LE,  // kCVPixelFormatType_444YpCbCr16BiPlanarVideoRange |

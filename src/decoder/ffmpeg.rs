@@ -5,7 +5,7 @@ use super::*;
 use crate::types::VideoProcessingError;
 use crate::frame::FfmpegVideoFrame;
 
-use ffmpeg_next::{ ffi, codec, encoder, format, frame, media, Dictionary, Rational, rescale, rescale::Rescale };
+use ffmpeg_next::{ codec, format, frame, media, Dictionary, rescale, rescale::Rescale };
 
 pub enum OpenedDecoder {
     Video(ffmpeg_next::decoder::Video),
@@ -33,13 +33,13 @@ impl DecoderInterface for FfmpegDecoder {
         self.stream_state.iter_mut().map(|x| &mut x.info).collect()
     }
 
-    fn seek(&mut self, timestamp_us: i64) -> bool {
+    fn seek(&mut self, timestamp_us: i64) -> Result<bool, VideoProcessingError> {
         let position = timestamp_us.rescale((1, 1000000), rescale::TIME_BASE);
         if let Err(e) = self.context.seek(position, ..position) {
             log::error!("Failed to seek {:?}", e);
-            return false;
+            return Err(VideoProcessingError::from(e));
         }
-        true
+        Ok(true)
     }
 
     fn get_video_info(&self) -> Result<VideoInfo, VideoProcessingError> {
@@ -65,7 +65,7 @@ impl DecoderInterface for FfmpegDecoder {
         Err(ffmpeg_next::Error::StreamNotFound.into())
     }
 
-    fn next_frame(&mut self) -> Option<Frame> {
+    fn next_frame(&mut self) -> Result<Option<Frame>, VideoProcessingError> {
         let fetch_new_packet = unsafe { self.current_packet.is_empty() };
         if fetch_new_packet && !self.packets_ended {
             loop {
@@ -103,7 +103,7 @@ impl DecoderInterface for FfmpegDecoder {
                     if let Some(gpu_index) = self.open_options.gpu_index {
                         let hwaccel_device = self.open_options.custom_options.get("hwaccel_device").cloned();
 
-                        let hw = crate::support::ffmpeg_hw::init_device_for_decoding(gpu_index, unsafe { codec.as_mut_ptr() }, &mut ctx, hwaccel_device.as_deref()).unwrap();
+                        let hw = crate::support::ffmpeg_hw::init_device_for_decoding(gpu_index, unsafe { codec.as_ptr() }, &mut ctx, hwaccel_device.as_deref()).unwrap();
                         log::debug!("Selected HW backend {:?} ({}) with format {:?}", hw.1, hw.2, hw.3);
                         // hw_backend = hw.2;
                     }
@@ -126,35 +126,35 @@ impl DecoderInterface for FfmpegDecoder {
 
                 if let Err(e) = decoder.send_packet(&self.current_packet) {
                     log::error!("Decode error: {:?}", e);
-                    return None;
+                    return Err(e.into());
                 }
             }
             let mut frame = unsafe { ffmpeg_next::Frame::empty() };
             if let Err(e) = decoder.receive_frame(&mut frame) {
                 self.current_packet = ffmpeg_next::Packet::empty();
-                if self.packets_ended { return None; }
+                if self.packets_ended { return Ok(None); }
                 return self.next_frame();
             }
 
             match stream.parameters().medium() {
                 media::Type::Video => {
-                    Some(Frame::Video(FfmpegVideoFrame { avframe: frame::Video::from(frame), swframe: None }.into()))
+                    Ok(Some(Frame::Video(FfmpegVideoFrame { avframe: frame::Video::from(frame), swframe: None }.into())))
                 },
                 media::Type::Audio => {
-                    Some(Frame::Audio(FfmpegAudioFrame { avframe: frame::Audio::from(frame) }.into()))
+                    Ok(Some(Frame::Audio(FfmpegAudioFrame { avframe: frame::Audio::from(frame) }.into())))
                 },
                 // media::Type::Subtitle => {
                 //     Some(Frame::Subtitle(FfmpegSubtitleFrame {  }.into()))
                 // },
                 _ => {
                     self.current_packet = ffmpeg_next::Packet::empty();
-                    Some(Frame::Other)
+                    Ok(Some(Frame::Other))
                 }
             }
         } else {
             self.current_packet = ffmpeg_next::Packet::empty();
-            if self.packets_ended { return None; }
-            Some(Frame::Other)
+            if self.packets_ended { return Ok(None); }
+            Ok(Some(Frame::Other))
         }
     }
 }
@@ -166,7 +166,7 @@ impl FfmpegDecoder {
         let mut options_avdict = Dictionary::new();
         for (k, v) in &options.custom_options { options_avdict.set(&k, &v); }
         if path.starts_with("fd:") {
-            options_avdict.set("fd", &path[3..]); 
+            options_avdict.set("fd", &path[3..]);
             path = "fd:".into();
         }
         let mut input_context = format::input_with_dictionary(&path, options_avdict)?;
@@ -193,9 +193,9 @@ impl FfmpegDecoder {
                 info: Stream {
                     stream_type,
                     index: i,
-                    avg_frame_rate: (avg_fps.0, avg_fps.1),
-                    rate:           (rate.0, rate.1),
-                    time_base:      (time_base.0, time_base.1),
+                    avg_frame_rate: Rational(avg_fps.0, avg_fps.1),
+                    rate:           Rational(rate.0, rate.1),
+                    time_base:      Rational(time_base.0, time_base.1),
 
                     decode: true,
                 }

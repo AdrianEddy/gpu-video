@@ -2,6 +2,7 @@
 // Copyright © 2023 Adrian <adrian.eddy at gmail>
 
 mod ffmpeg; pub use ffmpeg::*;
+mod braw; pub use braw::*;
 use crate::types::*;
 
 pub struct TextureDescription {
@@ -20,7 +21,8 @@ pub trait VideoFrameInterface {
 
 #[enum_delegate::implement(VideoFrameInterface)]
 pub enum VideoFrame {
-    FfmpegVideoFrame(FfmpegVideoFrame)
+    FfmpegVideoFrame(FfmpegVideoFrame),
+    BrawVideoFrame(BrawVideoFrame)
 }
 
 #[enum_delegate::register]

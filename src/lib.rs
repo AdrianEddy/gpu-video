@@ -10,6 +10,8 @@ mod encoder;
 mod frame;
 mod conversion;
 mod types;
+mod buffer_pool;
 pub use types::*;
 pub use decoder::*;
 pub use frame::*;
+pub use buffer_pool::*;

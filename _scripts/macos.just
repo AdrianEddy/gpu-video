@@ -1,4 +1,4 @@
-!include common.just
+import 'common.just'
 
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ Dependencies ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -19,7 +19,7 @@ install-deps:
         echo "Downloading ffmpeg"
 
         # Download and extract ffmpeg
-        curl -L https://sourceforge.net/projects/avbuild/files/macOS/ffmpeg-6.1-macOS-gpl-lite.tar.xz/download -o ffmpeg.tar.xz
+        curl -L https://sourceforge.net/projects/avbuild/files/macOS/ffmpeg-8.0-macOS-gpl-lite.tar.xz/download -o ffmpeg.tar.xz
         7z x -aoa ffmpeg.tar.xz
         tar -xf ffmpeg.tar
         rm ffmpeg.tar ffmpeg.tar.xz

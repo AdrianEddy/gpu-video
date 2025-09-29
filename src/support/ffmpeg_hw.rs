@@ -2,6 +2,7 @@
 // Copyright © 2023 Adrian <adrian.eddy at gmail>
 
 use ffmpeg_next::{ ffi, format, codec, encoder };
+use std::sync::LazyLock;
 
 use std::collections::HashMap;
 use std::collections::hash_map::Entry;
@@ -68,9 +69,8 @@ impl Drop for HWDevice {
 unsafe impl Sync for HWDevice { }
 unsafe impl Send for HWDevice { }
 
-lazy_static::lazy_static! {
-    static ref DEVICES: Mutex<HashMap<u64, HWDevice>> = Mutex::new(HashMap::new());
-}
+static DEVICES: LazyLock<Mutex<HashMap<u64, HWDevice>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
+
 
 pub fn initialize_ctx(type_: ffi::AVHWDeviceType) {
     let mut devices = DEVICES.lock();
@@ -101,9 +101,12 @@ pub fn supported_gpu_backends() -> Vec<String> {
 }
 
 pub unsafe fn pix_formats_to_vec(formats: *const ffi::AVPixelFormat) -> Vec<format::Pixel> {
+    if formats.is_null() {
+        return Vec::new();
+    }
     let mut ret = Vec::new();
     for i in 0..100 {
-        let p = *formats.offset(i);
+        let p = unsafe { *formats.offset(i) };
         if p == ffi::AVPixelFormat::AV_PIX_FMT_NONE {
             break;
         }
@@ -167,7 +170,7 @@ pub fn find_working_encoder(encoders: &[(&'static str, bool)], device: Option<&s
             for i in 0..20 {
                 unsafe {
                     let type_ = if !x.0.contains("videotoolbox") {
-                        let config = ffi::avcodec_get_hw_config(enc.as_mut_ptr(), i);
+                        let config = ffi::avcodec_get_hw_config(enc.as_ptr(), i);
                         if config.is_null() {
                             println!("config is null {}", x.0);
                             break;
@@ -213,26 +216,30 @@ pub fn find_working_encoder(encoders: &[(&'static str, bool)], device: Option<&s
 }
 
 pub unsafe fn get_transfer_formats_from_gpu(frame: *mut ffi::AVFrame) -> Vec<format::Pixel> {
-    let mut formats = ptr::null_mut();
-    if !frame.is_null() && !(*frame).hw_frames_ctx.is_null() {
-        ffi::av_hwframe_transfer_get_formats((*frame).hw_frames_ctx, ffi::AVHWFrameTransferDirection::AV_HWFRAME_TRANSFER_DIRECTION_FROM, &mut formats, 0);
-    }
-    if formats.is_null() {
-        Vec::new()
-    } else {
-        pix_formats_to_vec(formats)
+    unsafe {
+        let mut formats = ptr::null_mut();
+        if !frame.is_null() && !(*frame).hw_frames_ctx.is_null() {
+            ffi::av_hwframe_transfer_get_formats((*frame).hw_frames_ctx, ffi::AVHWFrameTransferDirection::AV_HWFRAME_TRANSFER_DIRECTION_FROM, &mut formats, 0);
+        }
+        if formats.is_null() {
+            Vec::new()
+        } else {
+            pix_formats_to_vec(formats)
+        }
     }
 }
 pub unsafe fn get_transfer_formats_to_gpu(frame: *mut ffi::AVFrame) -> Vec<format::Pixel> {
-    let mut formats = ptr::null_mut();
-    if !frame.is_null() && !(*frame).hw_frames_ctx.is_null() {
-        ffi::av_hwframe_transfer_get_formats((*frame).hw_frames_ctx, ffi::AVHWFrameTransferDirection::AV_HWFRAME_TRANSFER_DIRECTION_TO, &mut formats, 0);
-    }
-    if formats.is_null() {
-        Vec::new()
-    } else {
-        pix_formats_to_vec(formats)
-    }
+    unsafe {
+        let mut formats = ptr::null_mut();
+        if !frame.is_null() && !(*frame).hw_frames_ctx.is_null() {
+            ffi::av_hwframe_transfer_get_formats((*frame).hw_frames_ctx, ffi::AVHWFrameTransferDirection::AV_HWFRAME_TRANSFER_DIRECTION_TO, &mut formats, 0);
+        }
+        if formats.is_null() {
+            Vec::new()
+        } else {
+            pix_formats_to_vec(formats)
+        }
+}
 }
 
 pub fn is_hardware_format(format: ffi::AVPixelFormat) -> bool {

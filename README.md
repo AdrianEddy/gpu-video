@@ -20,7 +20,7 @@ for stream in decoder.streams() {
     }
 }
 
-while let Some(mut frame) = decoder.next_frame() {
+while let Some(mut frame) = decoder.next_frame()? {
     match &mut frame {
         Frame::Video(v) => {
             println!("Video frame at {:?}: {}x{}: {:?}", v.timestamp_us(), v.width(), v.height(), v.format());
@@ -48,12 +48,13 @@ while let Some(mut frame) = decoder.next_frame() {
 
 - Decoders
     - [x] ffmpeg
-    - [ ] BRAW
+    - [x] BRAW
     - [ ] RED RAW
     - [ ] GStreamer
     - [ ] VideoToolbox
     - [ ] MFT
     - [ ] MediaCodec
+    - [ ] WebCodecs (WASM)
 
 - Conversion
     - [ ] ffmpeg
@@ -67,6 +68,7 @@ while let Some(mut frame) = decoder.next_frame() {
     - [ ] VideoToolbox
     - [ ] MFT
     - [ ] MediaCodec
+    - [ ] WebCodecs (WASM)
 
 ----------------
 

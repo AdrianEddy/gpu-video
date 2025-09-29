@@ -48,11 +48,11 @@ impl VideoFrameInterface for FfmpegVideoFrame {
             Pixel::P216LE      => PixelFormat::P216LE,
             Pixel::P410LE      => PixelFormat::P410LE,
             Pixel::P416LE      => PixelFormat::P416LE,
-            Pixel::RGB32       => PixelFormat::RGB32,
-            Pixel::RGB48BE     => PixelFormat::RGB48BE,
-            Pixel::RGBA        => PixelFormat::RGBA,
-            Pixel::BGRA        => PixelFormat::BGRA,
-            Pixel::RGBA64BE    => PixelFormat::RGBA64BE,
+            //Pixel::RGB32       => PixelFormat::RGB32,
+            //Pixel::RGB48BE     => PixelFormat::RGB48BE,
+            Pixel::RGBA        => PixelFormat::RgbaU8,
+            Pixel::BGRA        => PixelFormat::BgraU8,
+            Pixel::RGBA64BE    => PixelFormat::RgbaU16, // TODO: check endianness
             Pixel::YUV420P     => PixelFormat::YUV420P,
             Pixel::YUVJ420P    => PixelFormat::YUV420P, // TODO: range
             Pixel::YUV420P10LE => PixelFormat::YUV420P10LE,
@@ -77,7 +77,7 @@ impl VideoFrameInterface for FfmpegVideoFrame {
                 let pix_fmt = unsafe { mac_ffi::CVPixelBufferGetPixelFormatType((*self.avframe.as_ptr()).data[3] as mac_ffi::CVPixelBufferRef) };
                 let pix_fmt_bytes = pix_fmt.to_be_bytes();
                 match &pix_fmt_bytes {
-                    b"BGRA" => PixelFormat::BGRA,    // kCVPixelFormatType_32BGRA                        | 32 bit BGRA
+                    b"BGRA" => PixelFormat::BgraU8,    // kCVPixelFormatType_32BGRA                        | 32 bit BGRA
                     b"xf20" => PixelFormat::P010LE,  // kCVPixelFormatType_420YpCbCr10BiPlanarFullRange  | 2 plane YCbCr10 4:2:0, each 10 bits in the MSBs of 16bits, full-range (Y range 0-1023)
                     b"x420" => PixelFormat::P010LE,  // kCVPixelFormatType_420YpCbCr10BiPlanarVideoRange | 2 plane YCbCr10 4:2:0, each 10 bits in the MSBs of 16bits, video-range (luma=[64,940] chroma=[64,960])
                     b"420f" => PixelFormat::NV12,    // kCVPixelFormatType_420YpCbCr8BiPlanarFullRange   | Bi-Planar Component Y'CbCr 8-bit 4:2:0, full-range (luma=[0,255] chroma=[1,255]).  baseAddr points to a big-endian CVPlanarPixelBufferInfo_YCbCrBiPlanar struct
@@ -112,7 +112,7 @@ impl VideoFrameInterface for FfmpegVideoFrame {
                 match desc.Format {
                     DXGI_FORMAT_NV12               => PixelFormat::NV12,
                     DXGI_FORMAT_P010               => PixelFormat::P010LE,
-                    DXGI_FORMAT_B8G8R8A8_UNORM     => PixelFormat::BGRA,
+                    DXGI_FORMAT_B8G8R8A8_UNORM     => PixelFormat::BgraU8,
                     // DXGI_FORMAT_R16G16B16A16_FLOAT => PixelFormat::RGBAF16,
                     DXGI_FORMAT_420_OPAQUE         => PixelFormat::YUV420P,
                     f => { log::error!("Unknown D3D11 pixel format: {f:?}"); PixelFormat::Unknown }
@@ -123,7 +123,8 @@ impl VideoFrameInterface for FfmpegVideoFrame {
                 use windows::{ Win32::Graphics::Direct3D9::*, core::Interface };
                 const NV12_F: u32 = u32::from_le_bytes(*b"NV12");
                 const P010_F: u32 = u32::from_le_bytes(*b"P010");
-                const BGRA_F: u32 = D3DFMT_A8R8G8B8.0;
+                //const ARGB_F: u32 = D3DFMT_A8R8G8B8.0;
+                //const BGRA_F: u32 = D3DFMT_B8G8R8A8.0;
 
                 let mut desc = D3DSURFACE_DESC::default();
                 unsafe {
@@ -135,7 +136,7 @@ impl VideoFrameInterface for FfmpegVideoFrame {
                 match desc.Format.0 {
                     NV12_F => PixelFormat::NV12,
                     P010_F => PixelFormat::P010LE,
-                    BGRA_F => PixelFormat::BGRA,
+                    //BGRA_F => PixelFormat::BgraU8,
                     f => { log::error!("Unknown DXVA pixel format: {f:08x}"); PixelFormat::Unknown }
                 }
             },

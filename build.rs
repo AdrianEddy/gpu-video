@@ -2,6 +2,10 @@
 // Copyright © 2023 Adrian <adrian.eddy at gmail>
 
 fn main() {
+    if cfg!(not(feature = "link-libs")) {
+        return;
+    }
+
     let target_os = std::env::var("CARGO_CFG_TARGET_OS").unwrap();
     if target_os == "ios" {
         let frameworks = [

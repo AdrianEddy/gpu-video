@@ -260,7 +260,7 @@ mod mac_ffi {
     pub type CVPixelBufferRef = CVImageBufferRef;
 
     #[link(name = "CoreVideo", kind = "framework")]
-    extern "C" {
+    unsafe extern "C" {
         pub fn CVPixelBufferGetPixelFormatType(pixelBuffer: CVPixelBufferRef) -> u32;
     }
 }

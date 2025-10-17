@@ -468,9 +468,9 @@ dependencies = [
 
 [[package]]
 name = "indexmap"
-version = "2.11.4"
+version = "2.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4b0f83760fb341a774ed326568e19f5a863af4a952def8c39f9ab92fd95b88e5"
+checksum = "6717a8d2a5a929a1a2eb43a12812498ed141a0bcfb7e8f7844fbdbe4303bba9f"
 dependencies = [
  "equivalent",
  "hashbrown",
@@ -790,7 +790,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 [[package]]
 name = "r3d-rs"
 version = "0.1.0"
-source = "git+https://github.com/AdrianEddy/r3d-rs/#b184b236b15b2bed1f7a75c56f9493e925269069"
+source = "git+https://github.com/AdrianEddy/r3d-rs/#dfc199fdd5b9c4feb6c67d997f426a616eab4263"
 dependencies = [
  "bitflags",
  "cpp",

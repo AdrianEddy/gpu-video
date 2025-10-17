@@ -3,12 +3,12 @@
 
 use super::*;
 use crate::types::VideoProcessingError;
-use crate::frame::r3d::R3dVideoFrame;
+use crate::frame::r3d::{self, R3dVideoFrame};
 use crate::util::select_custom_option;
 use crate::buffer_pool::{BufferFactory, BufferPool, FrameBuffer};
 use std::hash::Hash;
 use std::sync::Arc;
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 use parking_lot::Mutex;
 
 use r3d_rs::*;
@@ -138,20 +138,78 @@ impl DecoderInterface for R3dDecoder {
 
 impl R3dDecoder {
     pub fn new(path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
-        static LIBRARY: LazyLock<Mutex<r3d_rs::Sdk>> = LazyLock::new(|| {
-            if let Ok(sdk_path) = std::env::var("REDSDK_PATH") {
-                let mut sdk_path = sdk_path.replace("\\", "/").replace("//", "/");
-                sdk_path.push_str("/Redistributable/win");
-                if cfg!(target_os = "windows") {
-                    sdk_path = sdk_path.replace("/", "\\");
-                }
-                log::debug!("Trying to load R3D SDK from {sdk_path}");
-                Mutex::new(Sdk::initialize(&sdk_path, InitializeFlags::R3DDecoder).unwrap()) // TODO: errors
-            } else {
-                Mutex::new(Sdk::initialize(".", InitializeFlags::R3DDecoder).unwrap()) // TODO: errors
+        static LIBRARY: OnceLock<Result<Mutex<r3d_rs::Sdk>, ::r3d_rs::RedError>> = OnceLock::new();
+
+        let lib = LIBRARY.get_or_init(|| {
+            let mut flags = InitializeFlags::R3DDecoder | InitializeFlags::Cuda | InitializeFlags::OpenCL;
+            if cfg!(target_os = "macos") {
+                flags |= InitializeFlags::Metal;
             }
+
+            let check = if cfg!(target_os = "windows") {
+                ("win", "REDCuda-x64.dll")
+            } else if cfg!(target_os = "macos") {
+                ("mac", "REDR3D.dylib")
+            } else {
+                ("linux", "REDR3D-x64.so")
+            };
+
+            let mut sdk_path = ".".to_string();
+
+            let candidates = vec![
+                ".".to_string(),
+                std::env::var("R3DSDK_DIR").unwrap_or_default(),
+                crate::util::select_custom_option(&options.custom_options, &["r3d.sdk_path", "R3DSDK_DIR"]).unwrap_or_default().to_string(),
+            ];
+            for candidate in candidates {
+                let mut path1 = std::path::Path::new(&candidate).join("Redistributable").join(&check.0).join(&check.1);
+                let mut path2 = std::path::Path::new(&candidate).join(&check.1);
+                if path1.exists() {
+                    path1.pop();
+                    sdk_path = path1.to_string_lossy().to_string();
+                    break;
+                }
+                if path2.exists() {
+                    path2.pop();
+                    sdk_path = path2.to_string_lossy().to_string();
+                    break;
+                }
+            }
+            sdk_path = sdk_path.replace("\\", "/").replace("//", "/");
+            if cfg!(target_os = "windows") {
+                sdk_path = sdk_path.replace("/", "\\");
+            }
+            log::debug!("Trying to load R3D SDK from {sdk_path}");
+
+            for _ in 0..3 {
+                match Sdk::initialize(&sdk_path, flags) {
+                    Ok(sdk) => {
+                        return Ok(Mutex::new(sdk));
+                    },
+                    Err(::r3d_rs::RedError::RedCudaLibraryNotFound) if flags.contains(InitializeFlags::Cuda) => {
+                        flags &= !InitializeFlags::Cuda;
+                    },
+                    Err(::r3d_rs::RedError::RedOpenCLLibraryNotFound) if flags.contains(InitializeFlags::OpenCL) => {
+                        flags &= !InitializeFlags::OpenCL;
+                    },
+                    Err(::r3d_rs::RedError::RedMetalLibraryNotFound) if flags.contains(InitializeFlags::Metal) => {
+                        flags &= !InitializeFlags::Metal;
+                    }
+                    Err(e) => {
+                        log::error!("Failed to initialize R3D SDK: {e:?}");
+                        return Err(e)
+                    }
+                }
+            }
+            Err(::r3d_rs::RedError::UnableToLoadLibrary)
         });
-        let _sdk = LIBRARY.lock(); // TODO this lock is probably too excessive
+        let lib2 = match lib {
+            Ok(mutex) => mutex,
+            Err(e) => {
+                return Err(e.clone().into());
+            }
+        };
+        let _sdk = lib2.lock(); // TODO this lock is probably too excessive
 
         // Open clip
         let clip = Clip::from_path(path)?;

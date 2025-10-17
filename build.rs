@@ -39,25 +39,27 @@ fn main() {
         println!("cargo:rustc-link-lib=framework=Security");
         println!("cargo:rustc-link-arg=-lc++");
     }
-    match target_os.as_str() {
-        "android" => {
-            println!("cargo:rustc-link-search={}/lib/arm64-v8a", std::env::var("FFMPEG_DIR").unwrap());
-            println!("cargo:rustc-link-search={}/lib", std::env::var("FFMPEG_DIR").unwrap());
-        },
-        "macos" | "ios" => {
-            println!("cargo:rustc-link-search={}/lib", std::env::var("FFMPEG_DIR").unwrap());
-            println!("cargo:rustc-link-lib=static:+whole-archive,-bundle=x264");
-            println!("cargo:rustc-link-lib=static:+whole-archive,-bundle=x265");
-        },
-        "linux" => {
-            println!("cargo:rustc-link-search={}/lib/amd64", std::env::var("FFMPEG_DIR").unwrap());
-            println!("cargo:rustc-link-search={}/lib", std::env::var("FFMPEG_DIR").unwrap());
-            println!("cargo:rustc-link-lib=static:+whole-archive=z");
-        },
-        "windows" => {
-            println!("cargo:rustc-link-search={}\\lib\\x64", std::env::var("FFMPEG_DIR").unwrap());
-            println!("cargo:rustc-link-search={}\\lib", std::env::var("FFMPEG_DIR").unwrap());
+    if cfg!(feature = "ffmpeg") {
+        match target_os.as_str() {
+            "android" => {
+                println!("cargo:rustc-link-search={}/lib/arm64-v8a", std::env::var("FFMPEG_DIR").unwrap());
+                println!("cargo:rustc-link-search={}/lib", std::env::var("FFMPEG_DIR").unwrap());
+            },
+            "macos" | "ios" => {
+                println!("cargo:rustc-link-search={}/lib", std::env::var("FFMPEG_DIR").unwrap());
+                println!("cargo:rustc-link-lib=static:+whole-archive,-bundle=x264");
+                println!("cargo:rustc-link-lib=static:+whole-archive,-bundle=x265");
+            },
+            "linux" => {
+                println!("cargo:rustc-link-search={}/lib/amd64", std::env::var("FFMPEG_DIR").unwrap());
+                println!("cargo:rustc-link-search={}/lib", std::env::var("FFMPEG_DIR").unwrap());
+                println!("cargo:rustc-link-lib=static:+whole-archive=z");
+            },
+            "windows" => {
+                println!("cargo:rustc-link-search={}\\lib\\x64", std::env::var("FFMPEG_DIR").unwrap());
+                println!("cargo:rustc-link-search={}\\lib", std::env::var("FFMPEG_DIR").unwrap());
+            }
+            tos => panic!("unknown target os {:?}!", tos)
         }
-        tos => panic!("unknown target os {:?}!", tos)
     }
 }

@@ -19,6 +19,7 @@ pub enum PixelFormat {
     //RGB48BE,
     RgbU8,  RgbU16,  RgbF16,  RgbF32,
     RgbaU8, RgbaU16, RgbaF16, RgbaF32,
+    BgrU8,  BgrU16, BgrF16, BgrF32,
     BgraU8, BgraU16, BgraF16, BgraF32,
     //BGRA,
     //RGBA64BE,
@@ -172,8 +173,15 @@ pub enum VideoProcessingError {
     PixelFormatNotSupported { format: PixelFormat, supported: Vec<PixelFormat> },
     #[error("Unknown pixel format: {0:?}")]
     UnknownPixelFormat(PixelFormat),
+
+    #[cfg(feature = "ffmpeg")]
     #[error("ffmpeg error: {0:?}")]
     FfmpegError(#[from] ffmpeg_next::Error),
+
+    #[cfg(feature = "braw")]
     #[error("BRAW error: {0:?}")]
     BrawError(#[from] ::braw::BrawError),
+    #[cfg(feature = "r3d")]
+    #[error("R3D error: {0:?}")]
+    R3DError(#[from] ::r3d_rs::RedError),
 }

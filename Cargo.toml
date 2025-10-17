@@ -12,12 +12,13 @@ readme = "README.md"
 thiserror = "2"
 log = "0.4"
 simple-log = "2.4"
-enum_delegate = "0.2"
+enum_dispatch = "0.3"
 crc32fast = "1.5"
 parking_lot = "0.12"
-ffmpeg-next = { version = "8.0.0", default-features = false, features = ["codec", "filter", "format", "software-resampling", "software-scaling"] }
+ffmpeg-next = { version = "8.0.0", optional = true, default-features = false, features = ["codec", "filter", "format", "software-resampling", "software-scaling"] }
 
-braw = { git = "https://github.com/AdrianEddy/braw-rs/" }
+braw = { git = "https://github.com/AdrianEddy/braw-rs/", optional = true }
+r3d-rs = { git = "https://github.com/AdrianEddy/r3d-rs/", default-features = false, optional = true }
 pollster = "0.4"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies.metal]
@@ -31,8 +32,10 @@ features = [ "Win32_System_Com", "Win32_System_Console", "Win32_System_SystemSer
 
 [features]
 default = ["link-libs"]
-link-libs = []
-
+link-libs = ["r3d-rs/link"]
+ffmpeg = ["dep:ffmpeg-next"]
+braw = ["dep:braw"]
+r3d = ["dep:r3d-rs"]
 
 [lib]
 name = "gpu_video"

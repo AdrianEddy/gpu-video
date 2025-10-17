@@ -1,7 +1,7 @@
 # gpu-video
 Rust library for decoding and encoding video on the GPU. Designed to be backend-independent, but ffmpeg will be the main focus at the beginning
 
-WARNING: NOT READY YET. This will be a refactor of [Gyroflow](https://github.com/gyroflow/gyroflow/)'s ffmpeg code. Currently only ffmpeg decoder works
+WARNING: NOT READY YET. This will be a refactor of [Gyroflow](https://github.com/gyroflow/gyroflow/)'s ffmpeg code. Currently, the decoders are implemented for ffmpeg, BRAW and R3D raw
 
 Designed to have very simple yet powerful API.
 
@@ -9,7 +9,6 @@ Example:
 ```rust
 let mut decoder = Decoder::new("video_file.mp4", DecoderOptions {
     gpu_index: Some(0),
-    ranges_ms: Vec::new(),
     custom_options: HashMap::new()
 }).unwrap();
 
@@ -49,7 +48,7 @@ while let Some(mut frame) = decoder.next_frame()? {
 - Decoders
     - [x] ffmpeg
     - [x] BRAW
-    - [ ] RED RAW
+    - [x] RED RAW
     - [ ] GStreamer
     - [ ] VideoToolbox
     - [ ] MFT

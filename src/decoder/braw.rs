@@ -3,7 +3,8 @@
 
 use super::*;
 use crate::types::VideoProcessingError;
-use crate::frame::BrawVideoFrame;
+use crate::frame::braw::BrawVideoFrame;
+use crate::util::select_custom_option;
 use std::sync::LazyLock;
 use parking_lot::Mutex;
 use core::ffi::c_void;
@@ -88,6 +89,9 @@ pub struct BrawDecoder {
 
     stream_state: Vec<StreamInfo>,
 
+    resolution_scale: Option<BlackmagicRawResolutionScale>,
+    resource_format: Option<BlackmagicRawResourceFormat>,
+
     // Drop order is important here
     buffer_pool: Arc<BufferPool<BrawRawResource, BrawTypeAndFormat, BrawResourceFactory>>,
     clip: BlackmagicRawClip,
@@ -131,6 +135,10 @@ impl DecoderInterface for BrawDecoder {
         }
         pollster::block_on(async {
             let frame = self.clip.read_frame(self.current_frame).await?;
+
+            if let Some(scale) = self.resolution_scale { frame.set_resolution_scale(scale)?; }
+            if let Some(format) = self.resource_format { frame.set_resource_format(format)?; }
+
             let data = frame.decode_and_process(None, None).await?; // TODO handle errors
 
             let timestamp_us = self.current_frame as i64 * 1_000_000 / self.frame_rate as i64;
@@ -228,6 +236,23 @@ impl BrawDecoder {
 
         let buffer_pool = Arc::new(BufferPool::new(4, buffer_factory));
 
+        let resolution_scale = if let Some(value) = select_custom_option(&options.custom_options, &["braw.decode_resolution", "decode_resolution"]) {
+            match parse_resolution_scale(value) {
+                Some(scale) => Some(scale),
+                None => { log::warn!("BRAW: ignoring unknown decode_resolution '{value}'"); None }
+            }
+        } else {
+            None
+        };
+        let resource_format = if let Some(value) = select_custom_option(&options.custom_options, &["braw.output_format", "output_format"]) {
+            match parse_resource_format(value) {
+                Some(format) => Some(format),
+                None => { log::warn!("BRAW: ignoring unknown output_format '{value}'"); None }
+            }
+        } else {
+            None
+        };
+
         Ok(Self {
             codec: codec,
             clip: clip.clone(),
@@ -241,7 +266,39 @@ impl BrawDecoder {
 
             open_options: options,
 
-            stream_state
+            stream_state,
+            resolution_scale,
+            resource_format,
         })
+    }
+}
+
+fn parse_resolution_scale(value: &str) -> Option<BlackmagicRawResolutionScale> {
+    match value.to_ascii_lowercase().trim() {
+        "full"    | "1"   => Some(BlackmagicRawResolutionScale::Full),
+        "half"    | "1/2" => Some(BlackmagicRawResolutionScale::Half),
+        "quarter" | "1/4" => Some(BlackmagicRawResolutionScale::Quarter),
+        "eighth"  | "1/8" => Some(BlackmagicRawResolutionScale::Eighth),
+        _ => None,
+    }
+}
+
+fn parse_resource_format(value: &str) -> Option<BlackmagicRawResourceFormat> {
+    match value.to_ascii_lowercase().trim() {
+        "rgba8"  => Some(BlackmagicRawResourceFormat::RGBAU8),
+        "bgra8"  => Some(BlackmagicRawResourceFormat::BGRAU8),
+        "rgb16"  => Some(BlackmagicRawResourceFormat::RGBU16),
+        "rgba16" => Some(BlackmagicRawResourceFormat::RGBAU16),
+        "bgra16" => Some(BlackmagicRawResourceFormat::BGRAU16),
+        "rgb16_planar" => Some(BlackmagicRawResourceFormat::RGBU16Planar),
+        "rgbf32"  => Some(BlackmagicRawResourceFormat::RGBF32),
+        "rgbaf32" => Some(BlackmagicRawResourceFormat::RGBAF32),
+        "bgraf32" => Some(BlackmagicRawResourceFormat::BGRAF32),
+        "rgbf32_planar" => Some(BlackmagicRawResourceFormat::RGBF32Planar),
+        "rgbf16"  => Some(BlackmagicRawResourceFormat::RGBF16),
+        "rgbaf16" => Some(BlackmagicRawResourceFormat::RGBAF16),
+        "bgraf16" => Some(BlackmagicRawResourceFormat::BGRAF16),
+        "rgbf16_planar" => Some(BlackmagicRawResourceFormat::RGBF16Planar),
+        _ => None,
     }
 }

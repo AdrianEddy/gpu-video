@@ -63,7 +63,7 @@ impl<P: Hash> Hash for BufKey<P> {
 /// The inner shared state of the pool.
 struct PoolInner<T, P, F>
 where
-    P: Eq + Hash + Clone + Send + Sync + 'static,
+    P: Eq + Hash + Clone + Send + Sync + fmt::Debug + 'static,
     F: BufferFactory<T, P>,
 {
     capacity_per_key: usize,
@@ -76,7 +76,7 @@ where
 #[derive(Clone)]
 pub struct BufferPool<T, P, F>
 where
-    P: Eq + Hash + Clone + Send + Sync + 'static,
+    P: Eq + Hash + Clone + Send + Sync + fmt::Debug + 'static,
     F: BufferFactory<T, P>,
 {
     inner: Arc<PoolInner<T, P, F>>,
@@ -84,7 +84,7 @@ where
 
 impl<T, P, F> BufferPool<T, P, F>
 where
-    P: Eq + Hash + Clone + Send + Sync + 'static,
+    P: Eq + Hash + Clone + Send + Sync + fmt::Debug + 'static,
     F: BufferFactory<T, P>,
 {
     /// Create a pool with a per-key capacity and a factory that constructs new buffers.
@@ -123,7 +123,10 @@ where
 
         let buf = match maybe_buf {
             Some(buf) => buf,
-            None => self.inner.factory.lock().create(width, height, stride, &format),
+            None => {
+                log::debug!("Creating a new buffer {width}x{height} | stride {stride} | {format:?}");
+                self.inner.factory.lock().create(width, height, stride, &format)
+            }
         };
 
         PooledFrame {
@@ -152,7 +155,7 @@ where
 }
 impl<T, P, F> Drop for PoolInner<T, P, F>
 where
-    P: Eq + Hash + Clone + Send + Sync + 'static,
+    P: Eq + Hash + Clone + Send + Sync + fmt::Debug + 'static,
     F: BufferFactory<T, P>,
 {
     fn drop(&mut self) {
@@ -161,6 +164,7 @@ where
         let mut buckets = self.buckets.lock();
         for (_key, vec) in buckets.drain() {
             for buf in vec {
+                log::debug!("Freeing buffer: {:?}", _key);
                 factory.free(buf);
             }
         }
@@ -170,7 +174,7 @@ where
 /// A smart handle that returns its buffer to the pool on drop.
 pub struct PooledFrame<T, P, F>
 where
-    P: Eq + Hash + Clone + Send + Sync + 'static,
+    P: Eq + Hash + Clone + Send + Sync + fmt::Debug + 'static,
     F: BufferFactory<T, P>,
 {
     pool: Option<Arc<PoolInner<T, P, F>>>,
@@ -193,7 +197,7 @@ where
 
 impl<T, P, F> PooledFrame<T, P, F>
 where
-    P: Eq + Hash + Clone + Send + Sync + 'static,
+    P: Eq + Hash + Clone + Send + Sync + fmt::Debug + 'static,
     F: BufferFactory<T, P>,
 {
     /// Access the buffer.
@@ -221,6 +225,7 @@ where
             if entry.len() < pool.capacity_per_key {
                 entry.push(buf);
             } else {
+                log::debug!("Freeing buffer: {:?}", self.key);
                 pool.factory.lock().free(buf);
             }
         }
@@ -230,7 +235,7 @@ where
 
 impl<T, P, F> Drop for PooledFrame<T, P, F>
 where
-    P: Eq + Hash + Clone + Send + Sync + 'static,
+    P: Eq + Hash + Clone + Send + Sync + fmt::Debug + 'static,
     F: BufferFactory<T, P>,
 {
     fn drop(&mut self) {
@@ -241,6 +246,7 @@ where
                 if entry.len() < pool.capacity_per_key {
                     entry.push(buf);
                 } else {
+                    log::debug!("Freeing buffer: {:?}", self.key);
                     pool.factory.lock().free(buf);
                 }
             }

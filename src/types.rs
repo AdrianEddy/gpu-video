@@ -157,6 +157,8 @@ pub enum VideoProcessingError {
     NoGPUDecodingDevice,
     #[error("No hardware transfer formats")]
     NoHWTransferFormats,
+    #[error("Failed to allocate frame")]
+    FailedToAllocateFrame,
     #[error("Error transferring frame from the GPU: {0:?}")] // , ffmpeg_next::Error::Other { errno: .0 }
     FromHWTransferError(i32),
     #[error("Error transferring frame to the GPU: {0:?}")] // , ffmpeg_next::Error::Other { errno: .0 }

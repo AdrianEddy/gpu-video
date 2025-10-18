@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::types::VideoProcessingError;
-use crate::frame::r3d::{self, R3dVideoFrame};
+use crate::frame::r3d::R3dVideoFrame;
 use crate::util::select_custom_option;
 use crate::buffer_pool::{BufferFactory, BufferPool, FrameBuffer};
 use std::hash::Hash;
@@ -31,20 +31,21 @@ pub(crate) struct R3dBufferFactory {
     size_bytes: usize,
 }
 impl BufferFactory<AlignedBuffer, R3dTypeAndFormat> for R3dBufferFactory {
-    fn create(&mut self, width: u32, height: u32, stride: usize, format: &R3dTypeAndFormat) -> FrameBuffer<AlignedBuffer, R3dTypeAndFormat> {
+    fn create(&mut self, width: u32, height: u32, stride: usize, format: &R3dTypeAndFormat) -> Result<FrameBuffer<AlignedBuffer, R3dTypeAndFormat>, VideoProcessingError> {
         let size = format.size_bytes.unwrap_or(self.size_bytes);
-        let buf = AlignedBuffer::new(size, 16).expect("Failed to allocate aligned buffer");
-        FrameBuffer {
+        let buf = AlignedBuffer::new(size, 16)?;
+        Ok(FrameBuffer {
             width,
             height,
             stride,
             format: *format,
             inner: buf,
-        }
+        })
     }
 
-    fn free(&mut self, _buffer: FrameBuffer<AlignedBuffer, R3dTypeAndFormat>) {
+    fn free(&mut self, _buffer: FrameBuffer<AlignedBuffer, R3dTypeAndFormat>) -> Result<(), VideoProcessingError> {
         // Dropping the AlignedBuffer will free memory automatically
+        Ok(())
     }
 }
 
@@ -106,7 +107,7 @@ impl DecoderInterface for R3dDecoder {
             mode: self.mode,
             pixel_type: self.pixel_type,
             size_bytes: Some(size_needed),
-        });
+        })?;
         let buf_ptr = pooled.buffer().inner.ptr;
         let buf_len = pooled.buffer().inner.len();
 
@@ -130,7 +131,6 @@ impl DecoderInterface for R3dDecoder {
             width,
             height,
             pixel_type: self.pixel_type,
-            buffer_pool: self.buffer_pool.clone(),
             cpu_frame: Some(pooled),
         }.into())))
     }
@@ -205,9 +205,7 @@ impl R3dDecoder {
         });
         let lib2 = match lib {
             Ok(mutex) => mutex,
-            Err(e) => {
-                return Err(e.clone().into());
-            }
+            Err(e) => { return Err(e.clone().into()); }
         };
         let _sdk = lib2.lock(); // TODO this lock is probably too excessive
 
@@ -241,7 +239,6 @@ impl R3dDecoder {
                 if let Some(dev) = dev {
                     if opts.use_opencl_device(&dev).is_ok() {
                         log::debug!("R3D: Using OpenCL device: {} / {}", dev.platform_name(), dev.name());
-                        device_set = true;
                     }
                 }
             }

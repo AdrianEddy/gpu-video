@@ -5,10 +5,11 @@ use std::{
     sync::{Arc},
 };
 use parking_lot::Mutex;
+use crate::VideoProcessingError;
 
 pub trait BufferFactory<T, P> {
-    fn create(&mut self, width: u32, height: u32, stride: usize, format: &P) -> FrameBuffer<T, P>;
-    fn free(&mut self, buffer: FrameBuffer<T, P>);
+    fn create(&mut self, width: u32, height: u32, stride: usize, format: &P) -> Result<FrameBuffer<T, P>, VideoProcessingError>;
+    fn free(&mut self, buffer: FrameBuffer<T, P>) -> Result<(), VideoProcessingError>;
 }
 
 #[derive(Clone)]
@@ -103,7 +104,7 @@ where
 
     /// Get a frame buffer matching the (width, height, stride, format) parameters.
     /// Reuses a buffer from the pool if available, otherwise creates a new one via the factory.
-    pub fn get(&self, width: u32, height: u32, stride: usize, format: P) -> PooledFrame<T, P, F> {
+    pub fn get(&self, width: u32, height: u32, stride: usize, format: P) -> Result<PooledFrame<T, P, F>, VideoProcessingError> {
         let key = BufKey {
             width,
             height,
@@ -125,17 +126,17 @@ where
             Some(buf) => buf,
             None => {
                 log::debug!("Creating a new buffer {width}x{height} | stride {stride} | {format:?}");
-                self.inner.factory.lock().create(width, height, stride, &format)
+                self.inner.factory.lock().create(width, height, stride, &format)?
             }
         };
 
-        PooledFrame {
+        Ok(PooledFrame {
             pool: Some(self.inner.clone()),
             key,
             buf: Some(buf),
             // Whether this pooled frame should return to the pool on drop.
             return_on_drop: true,
-        }
+        })
     }
 
     /*/// Manually release a buffer back into the pool. (Usually not needed; happens on Drop.)
@@ -162,10 +163,12 @@ where
         // Free all buffers in all buckets.
         let mut factory = self.factory.lock();
         let mut buckets = self.buckets.lock();
-        for (_key, vec) in buckets.drain() {
+        for (key, vec) in buckets.drain() {
             for buf in vec {
-                log::debug!("Freeing buffer: {:?}", _key);
-                factory.free(buf);
+                log::debug!("Freeing buffer: {key:?}");
+                if let Err(e) = factory.free(buf) {
+                    log::error!("Error freeing buffer {key:?}: {e:?}");
+                }
             }
         }
     }
@@ -217,7 +220,7 @@ where
     }
 
     /// Explicitly release early. After this, the handle is empty and Drop is a no-op.
-    pub fn release(mut self) {
+    pub fn release(mut self) -> Result<(), VideoProcessingError> {
         if let (Some(pool), Some(buf)) = (self.pool.take(), self.buf.take()) {
             // Reinsert under lock, observing capacity.
             let mut buckets = pool.buckets.lock();
@@ -226,10 +229,11 @@ where
                 entry.push(buf);
             } else {
                 log::debug!("Freeing buffer: {:?}", self.key);
-                pool.factory.lock().free(buf);
+                pool.factory.lock().free(buf)?;
             }
         }
         self.return_on_drop = false;
+        Ok(())
     }
 }
 
@@ -247,7 +251,9 @@ where
                     entry.push(buf);
                 } else {
                     log::debug!("Freeing buffer: {:?}", self.key);
-                    pool.factory.lock().free(buf);
+                    if let Err(e) = pool.factory.lock().free(buf) {
+                        log::error!("Error freeing buffer {:?}: {e:?}", self.key);
+                    }
                 }
             }
         }

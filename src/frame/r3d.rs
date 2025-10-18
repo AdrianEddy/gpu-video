@@ -6,14 +6,12 @@ use super::*;
 use crate::decoder::r3d::*;
 use crate::buffer_pool::*;
 use r3d_rs::*;
-use std::sync::Arc;
 
 pub struct R3dVideoFrame {
 	pub(crate) timestamp_us: i64,
 	pub(crate) width: u32,
 	pub(crate) height: u32,
 	pub(crate) pixel_type: VideoPixelType,
-	pub(crate) buffer_pool: Arc<BufferPool<AlignedBuffer, R3dTypeAndFormat, R3dBufferFactory>>,
 	pub(crate) cpu_frame: Option<PooledFrame<AlignedBuffer, R3dTypeAndFormat, R3dBufferFactory>>,
 }
 

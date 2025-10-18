@@ -83,7 +83,7 @@ pub struct NullDecoder;
 
 impl DecoderInterface for NullDecoder {
     fn streams(&mut self) -> Vec<&mut Stream> { Vec::new() }
-    fn seek(&mut self, timestamp_us: i64) -> Result<bool, VideoProcessingError> { Ok(false) }
+    fn seek(&mut self, _timestamp_us: i64) -> Result<bool, VideoProcessingError> { Ok(false) }
     fn next_frame(&mut self) -> Result<Option<Frame>, VideoProcessingError> { Ok(None) }
     fn get_video_info(&self) -> Result<VideoInfo, VideoProcessingError> { Err(VideoProcessingError::DecoderNotFound) }
 }

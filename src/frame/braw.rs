@@ -58,7 +58,7 @@ impl VideoFrameInterface for BrawVideoFrame {
                     kind: BlackmagicRawResourceType::BufferCPU,
                     pixel_format: self.format,
                     size_bytes: Some(data_size)
-                }));
+                })?);
                 let cpu_frame2 = self.cpu_frame.as_ref().unwrap().buffer();
 
                 let src = self.frame.resource_gpu()?;

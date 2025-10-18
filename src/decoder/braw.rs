@@ -5,7 +5,7 @@ use super::*;
 use crate::types::VideoProcessingError;
 use crate::frame::braw::BrawVideoFrame;
 use crate::util::select_custom_option;
-use std::sync::LazyLock;
+use std::sync::OnceLock;
 use parking_lot::Mutex;
 use core::ffi::c_void;
 use std::hash::Hash;
@@ -51,13 +51,14 @@ pub(crate) struct BrawResourceFactory {
     resmgr: BlackmagicRawResourceManager,
 }
 impl BufferFactory<BrawRawResource, BrawTypeAndFormat> for BrawResourceFactory {
-    fn create(&mut self, width: u32, height: u32, stride: usize, format: &BrawTypeAndFormat) -> FrameBuffer<BrawRawResource, BrawTypeAndFormat> { // TODO: result
+    fn create(&mut self, width: u32, height: u32, stride: usize, format: &BrawTypeAndFormat) -> Result<FrameBuffer<BrawRawResource, BrawTypeAndFormat>, VideoProcessingError> {
         log::debug!("Creating BRAW resource buffer: {:?}", format);
-        let mut img = self.resmgr.create_resource(self.context.unwrap_or(std::ptr::null_mut()), self.queue.unwrap_or(std::ptr::null_mut()), format.size_bytes.unwrap_or(0) as u32, format.kind, BlackmagicRawResourceUsage::ReadCPUWriteCPU).unwrap();
+        let img = self.resmgr.create_resource(self.context.unwrap_or(std::ptr::null_mut()), self.queue.unwrap_or(std::ptr::null_mut()), format.size_bytes.unwrap_or(0) as u32, format.kind, BlackmagicRawResourceUsage::ReadCPUWriteCPU)?;
         if img.is_null() {
-            panic!("Failed to create BRAW resource buffer");
+            log::error!("Failed to create BRAW resource buffer");
+            return Err(VideoProcessingError::FailedToAllocateFrame);
         }
-        FrameBuffer {
+        Ok(FrameBuffer {
             width,
             height,
             stride,
@@ -70,12 +71,13 @@ impl BufferFactory<BrawRawResource, BrawTypeAndFormat> for BrawResourceFactory {
                 data: img,
                 size: format.size_bytes.unwrap_or(0),
             }
-        }
+        })
     }
 
-    fn free(&mut self, buffer: FrameBuffer<BrawRawResource, BrawTypeAndFormat>) {
+    fn free(&mut self, buffer: FrameBuffer<BrawRawResource, BrawTypeAndFormat>) -> Result<(), VideoProcessingError> {
         log::debug!("Dropping BRAW resource buffer: {:?}", buffer);
-        self.resmgr.release_resource(buffer.inner.context.unwrap_or(std::ptr::null_mut()), buffer.inner.queue.unwrap_or(std::ptr::null_mut()), buffer.inner.data, buffer.inner.kind).unwrap(); // TODO: result
+        self.resmgr.release_resource(buffer.inner.context.unwrap_or(std::ptr::null_mut()), buffer.inner.queue.unwrap_or(std::ptr::null_mut()), buffer.inner.data, buffer.inner.kind)?;
+        Ok(())
     }
 }
 
@@ -159,15 +161,22 @@ impl DecoderInterface for BrawDecoder {
 }
 
 impl BrawDecoder {
-    pub fn new(mut path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
-        static LIBRARY: LazyLock<Mutex<GlobalFactory>> = LazyLock::new(|| {
-            Mutex::new(GlobalFactory(Factory::load_from(default_library_name()).unwrap()))
+    pub fn new(path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
+        static LIBRARY: OnceLock<Result<Mutex<GlobalFactory>, ::braw::BrawError>> = OnceLock::new();
+        let lib = LIBRARY.get_or_init(|| {
+            match Factory::load_from(default_library_name()) {
+                Ok(factory) => Ok(Mutex::new(GlobalFactory(factory))),
+                Err(e) => Err(e),
+            }
         });
         use std::sync::Arc;
-        use std::borrow::Cow;
 
         let (codec, device, context, queue) = {
-            let factory = LIBRARY.lock();
+            let lib2 = match lib {
+                Ok(mutex) => mutex,
+                Err(e) => { return Err(e.clone().into()); }
+            };
+            let factory = lib2.lock();
             let codec = factory.0.create_codec()?;
             let mut config = codec.configuration()?;
 

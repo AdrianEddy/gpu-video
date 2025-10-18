@@ -77,7 +77,7 @@ checksum = "0d8c1fef690941d3e7788d328517591fecc684c084084702d6ff1641e993699a"
 [[package]]
 name = "braw"
 version = "0.1.0"
-source = "git+https://github.com/AdrianEddy/braw-rs/#bd6da1b45cf49e1470760ea370d502eae2ed9405"
+source = "git+https://github.com/AdrianEddy/braw-rs/#33d4870a0204120e232e43889d472f48ba7f509c"
 dependencies = [
  "futures-util",
  "libloading",

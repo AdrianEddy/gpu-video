@@ -49,6 +49,11 @@ impl BufferFactory<AlignedBuffer, R3dTypeAndFormat> for R3dBufferFactory {
     }
 }
 
+enum SdkHolder {
+    Initialized(r3d_rs::Sdk),
+    Dummy,
+}
+
 pub struct R3dDecoder {
     frame_rate: f64,
     frame_count: u64,
@@ -138,7 +143,7 @@ impl DecoderInterface for R3dDecoder {
 
 impl R3dDecoder {
     pub fn new(path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
-        static LIBRARY: OnceLock<Result<Mutex<r3d_rs::Sdk>, ::r3d_rs::RedError>> = OnceLock::new();
+        static LIBRARY: OnceLock<Result<Mutex<SdkHolder>, ::r3d_rs::RedError>> = OnceLock::new();
 
         let lib = LIBRARY.get_or_init(|| {
             let mut flags = InitializeFlags::R3DDecoder | InitializeFlags::Cuda | InitializeFlags::OpenCL;
@@ -183,13 +188,13 @@ impl R3dDecoder {
 
             if Sdk::version().contains("R3DSDK") {
                 log::warn!("R3D SDK already initialized!");
-                return Ok(Mutex::new(Sdk));
+                return Ok(Mutex::new(SdkHolder::Dummy));
             }
 
             for _ in 0..3 {
                 match Sdk::initialize(&sdk_path, flags) {
                     Ok(sdk) => {
-                        return Ok(Mutex::new(sdk));
+                        return Ok(Mutex::new(SdkHolder::Initialized(sdk)));
                     },
                     Err(::r3d_rs::RedError::RedCudaLibraryNotFound) if flags.contains(InitializeFlags::Cuda) => {
                         flags &= !InitializeFlags::Cuda;

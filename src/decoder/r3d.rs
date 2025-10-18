@@ -181,6 +181,11 @@ impl R3dDecoder {
             }
             log::debug!("Trying to load R3D SDK from {sdk_path}");
 
+            if Sdk::version().contains("R3DSDK") {
+                log::warn!("R3D SDK already initialized!");
+                return Ok(Mutex::new(Sdk));
+            }
+
             for _ in 0..3 {
                 match Sdk::initialize(&sdk_path, flags) {
                     Ok(sdk) => {

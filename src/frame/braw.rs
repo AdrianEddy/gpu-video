@@ -125,4 +125,12 @@ impl VideoFrameInterface for BrawVideoFrame {
             }
         }
     }
+
+    fn color_range(&self) -> Option<ColorRange> {
+        None
+    }
+
+    fn color_space(&self) -> Option<ColorSpace> {
+        None
+    }
 }

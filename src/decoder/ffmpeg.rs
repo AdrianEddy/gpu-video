@@ -3,7 +3,7 @@
 
 use super::*;
 use crate::types::VideoProcessingError;
-use crate::frame::FfmpegVideoFrame;
+use crate::frame::ffmpeg::{ FfmpegAudioFrame, FfmpegVideoFrame };
 
 use ffmpeg_next::{ codec, format, frame, media, Dictionary, rescale, rescale::Rescale };
 
@@ -75,8 +75,8 @@ impl DecoderInterface for FfmpegDecoder {
                         self.packets_ended = true;
                         for state in &mut self.stream_state {
                             match &mut state.decoder {
-                                Some(OpenedDecoder::Video(decoder)) => decoder.send_eof().unwrap(),
-                                Some(OpenedDecoder::Audio(decoder)) => decoder.send_eof().unwrap(),
+                                Some(OpenedDecoder::Video(decoder)) => decoder.send_eof()?,
+                                Some(OpenedDecoder::Audio(decoder)) => decoder.send_eof()?,
                                 _ => { }
                             }
                         }
@@ -92,25 +92,25 @@ impl DecoderInterface for FfmpegDecoder {
         let state = &mut self.stream_state[stream.index()];
 
         if state.info.decode && state.decoder.is_none() {
-            let mut ctx = codec::context::Context::from_parameters(stream.parameters()).unwrap();
+            let mut ctx = codec::context::Context::from_parameters(stream.parameters())?;
             state.decoder = match stream.parameters().medium() {
                 media::Type::Video => {
                     ctx.set_threading(ffmpeg_next::threading::Config { kind: ffmpeg_next::threading::Type::Frame, count: 3 });
 
                     // let mut hw_backend = String::new();
-                    let mut codec = ffmpeg_next::decoder::find(ctx.id()).unwrap();
+                    let mut codec = ffmpeg_next::decoder::find(ctx.id()).ok_or(VideoProcessingError::DecoderNotFound)?;
 
                     if let Some(gpu_index) = self.open_options.gpu_index {
                         let hwaccel_device = self.open_options.custom_options.get("hwaccel_device").cloned();
 
-                        let hw = crate::support::ffmpeg_hw::init_device_for_decoding(gpu_index, unsafe { codec.as_ptr() }, &mut ctx, hwaccel_device.as_deref()).unwrap();
+                        let hw = crate::support::ffmpeg_hw::init_device_for_decoding(gpu_index, unsafe { codec.as_ptr() }, &mut ctx, hwaccel_device.as_deref())?;
                         log::debug!("Selected HW backend {:?} ({}) with format {:?}", hw.1, hw.2, hw.3);
                         // hw_backend = hw.2;
                     }
 
-                    Some(OpenedDecoder::Video(ctx.decoder().open_as(codec).and_then(|o| o.video()).unwrap()))
+                    Some(OpenedDecoder::Video(ctx.decoder().open_as(codec).and_then(|o| o.video())?))
                 },
-                media::Type::Audio => Some(OpenedDecoder::Audio(ctx.decoder().audio().unwrap())),
+                media::Type::Audio => Some(OpenedDecoder::Audio(ctx.decoder().audio()?)),
                 _ => None
             };
         }
@@ -160,16 +160,34 @@ impl DecoderInterface for FfmpegDecoder {
 }
 
 impl FfmpegDecoder {
-    pub fn new(mut path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
+    pub fn new<'a>(input: IoType<'a>, filename: Option<&str>, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
+        use format::{ context::StreamIo, input_from_stream };
+        use std::io::Cursor;
+
         ffmpeg_next::init()?;
 
         let mut options_avdict = Dictionary::new();
         for (k, v) in &options.custom_options { options_avdict.set(&k, &v); }
-        if path.starts_with("fd:") {
-            options_avdict.set("fd", &path[3..]);
-            path = "fd:".into();
-        }
-        let mut input_context = format::input_with_dictionary(&path, options_avdict)?;
+
+        let mut input_context = match input {
+            IoType::FileOrUrl(mut s) => {
+                if s.starts_with("fd:") {
+                    options_avdict.set("fd", &s[3..]);
+                    s = std::borrow::Cow::Borrowed("fd:");
+                }
+                format::input_with_dictionary(s.as_ref(), options_avdict)?
+            },
+            IoType::Bytes(m)                           => { input_from_stream(StreamIo::from_read_seek(Cursor::new(m))?, filename, Some(options_avdict))? },
+            IoType::ReadStream          { stream, .. } => { input_from_stream(StreamIo::from_read(stream)?,              filename, Some(options_avdict))? },
+            IoType::ReadSeekStream      { stream, .. } => { input_from_stream(StreamIo::from_read_seek(stream)?,         filename, Some(options_avdict))? },
+            IoType::WriteStream         { stream, .. } => { input_from_stream(StreamIo::from_write(stream)?,             filename, Some(options_avdict))? },
+            IoType::WriteSeekStream     { stream, .. } => { input_from_stream(StreamIo::from_write_seek(stream)?,        filename, Some(options_avdict))? },
+            IoType::ReadWriteSeekStream { stream, .. } => { input_from_stream(StreamIo::from_read_write_seek(stream)?,   filename, Some(options_avdict))? },
+            _ => {
+                log::error!("Unknown input");
+                return Err(VideoProcessingError::DecoderNotFound);
+            }
+        };
 
         // format::context::input::dump(&input_context, 0, Some(path));
 

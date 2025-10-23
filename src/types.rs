@@ -30,10 +30,17 @@ pub enum PixelFormat {
     UYVY422
 }
 
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum ColorRange {
     Full,
-    Limited
+    Limited,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq)]
+pub enum ColorSpace {
+    Bt601,
+    Bt709,
+    Bt2020,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -176,6 +183,9 @@ pub enum VideoProcessingError {
     #[error("Unknown pixel format: {0:?}")]
     UnknownPixelFormat(PixelFormat),
 
+    #[error("Unsupported IO")]
+    UnsupportedIO,
+
     #[cfg(feature = "ffmpeg")]
     #[error("ffmpeg error: {0:?}")]
     FfmpegError(#[from] ffmpeg_next::Error),
@@ -186,4 +196,7 @@ pub enum VideoProcessingError {
     #[cfg(feature = "r3d")]
     #[error("R3D error: {0:?}")]
     R3DError(#[from] ::r3d_rs::RedError),
+
+    #[error("IO error: {0:?}")]
+    IoError(#[from] std::io::Error),
 }

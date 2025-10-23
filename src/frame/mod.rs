@@ -18,6 +18,8 @@ pub trait VideoFrameInterface {
     fn format(&self) -> PixelFormat;
     fn get_cpu_buffers(&mut self) -> Result<Vec<&mut [u8]>, crate::VideoProcessingError>;
     fn get_gpu_texture(&mut self, plane: usize) -> Option<TextureDescription>;
+    fn color_range(&self) -> Option<ColorRange>;
+    fn color_space(&self) -> Option<ColorSpace>;
 }
 
 #[enum_dispatch::enum_dispatch]
@@ -70,4 +72,6 @@ impl VideoFrameInterface for NullVideoFrame {
     fn get_gpu_texture(&mut self, _plane: usize) -> Option<TextureDescription> {
         None
     }
+    fn color_range(&self) -> Option<ColorRange> { None }
+    fn color_space(&self) -> Option<ColorSpace> { None }
 }

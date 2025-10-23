@@ -49,4 +49,12 @@ impl VideoFrameInterface for R3dVideoFrame {
 		// CPU path only for now. In the future we can expose CUDA/OpenCL resources
 		None
 	}
+
+	fn color_range(&self) -> Option<ColorRange> {
+		None
+	}
+
+	fn color_space(&self) -> Option<ColorSpace> {
+		None
+	}
 }

@@ -194,29 +194,34 @@ impl VideoFrameInterface for FfmpegVideoFrame {
                             resource: ()
                         }
                     })
-                },
+                },*/
                 #[cfg(target_os = "windows")]
                 Pixel::D3D11 => {
-                    use windows::{ Win32::Graphics::Direct3D11::*, Win32::Graphics::Dxgi::Common::*, core::Vtable };
+                    use windows::{ Win32::Graphics::Direct3D11::*, Win32::Graphics::Dxgi::Common::*, core::Interface };
 
                     let mut desc = D3D11_TEXTURE2D_DESC::default();
                     unsafe {
                         let texture = (*self.avframe.as_ptr()).data[0] as *mut _;
+                        dbg!(texture);
                         // let index = (*self.avframe.as_ptr()).data[1] as i32;
-                        ID3D11Texture2D::from_raw_borrowed(&texture).GetDesc(&mut desc);
+                        ID3D11Texture2D::from_raw_borrowed(&texture)?.GetDesc(&mut desc);
+                        dbg!(&desc);
+                        None
                     }
-                },*/
-                /*#[cfg(target_os = "windows")]
+                },
+                #[cfg(target_os = "windows")]
                 Pixel::DXVA2_VLD => {
-                    use windows::{ Win32::Graphics::Direct3D9::*, core::Vtable };
+                    use windows::{ Win32::Graphics::Direct3D9::*, core::Interface };
                     let mut desc = D3DSURFACE_DESC::default();
                     unsafe {
                         let texture = (*self.avframe.as_ptr()).data[3] as *mut _;
-                        if let Err(e) = IDirect3DSurface9::from_raw_borrowed(&texture).GetDesc(&mut desc) {
-                            log::error!("Failed to get DXVA2 {}", e);
-                        }
+                        dbg!(texture);
+                        //if let Err(e) = IDirect3DSurface9::from_raw_borrowed(&texture).GetDesc(&mut desc) {
+                        //    log::error!("Failed to get DXVA2 {}", e);
+                        //}
+                        None
                     }
-                },*/
+                },
                 // #[cfg(target_os = "linux")]
                 // Pixel::VAAPI => { let texture = unsafe { (*self.avframe.as_ptr()).data[3] as VASurfaceID }; },
                 // #[cfg(target_os = "linux")]
@@ -234,6 +239,31 @@ impl VideoFrameInterface for FfmpegVideoFrame {
             }
         } else {
             None
+        }
+    }
+
+    fn color_range(&self) -> Option<ColorRange> {
+        unsafe {
+            use ffmpeg_next::ffi::AVColorRange::*;
+            match (*self.avframe.as_ptr()).color_range {
+                AVCOL_RANGE_UNSPECIFIED => None,
+                AVCOL_RANGE_MPEG => Some(ColorRange::Limited),
+                AVCOL_RANGE_JPEG => Some(ColorRange::Full),
+                _ => None,
+            }
+        }
+    }
+
+    fn color_space(&self) -> Option<ColorSpace> {
+        unsafe {
+            use ffmpeg_next::ffi::AVColorSpace::*;
+            match (*self.avframe.as_ptr()).colorspace {
+                AVCOL_SPC_UNSPECIFIED => None,
+                AVCOL_SPC_BT709 => Some(ColorSpace::Bt709),
+                AVCOL_SPC_BT470BG | AVCOL_SPC_FCC | AVCOL_SPC_SMPTE170M | AVCOL_SPC_SMPTE240M => Some(ColorSpace::Bt601),
+                AVCOL_SPC_BT2020_NCL | AVCOL_SPC_BT2020_CL | AVCOL_SPC_CHROMA_DERIVED_NCL | AVCOL_SPC_CHROMA_DERIVED_CL | AVCOL_SPC_ICTCP => Some(ColorSpace::Bt2020),
+                _ => None,
+            }
         }
     }
 }

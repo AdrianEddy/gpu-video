@@ -71,7 +71,9 @@ unsafe impl Send for HWDevice { }
 
 static DEVICES: LazyLock<Mutex<HashMap<u64, HWDevice>>> = LazyLock::new(|| Mutex::new(HashMap::new()));
 
-
+pub fn clear_devices() {
+    DEVICES.lock().clear();
+}
 pub fn initialize_ctx(type_: ffi::AVHWDeviceType) {
     let mut devices = DEVICES.lock();
     if let Entry::Vacant(e) = devices.entry(type_ as u64) {
@@ -116,9 +118,27 @@ pub unsafe fn pix_formats_to_vec(formats: *const ffi::AVPixelFormat) -> Vec<form
 }
 
 pub fn init_device_for_decoding(index: usize, codec: *const ffi::AVCodec, decoder_ctx: &mut codec::context::Context, device: Option<&str>) -> Result<(usize, ffi::AVHWDeviceType, String, Option<ffi::AVPixelFormat>), crate::VideoProcessingError> {
-    for i in index..20 {
+    let mut decoders = Vec::<(usize, ffi::AVHWDeviceType)>::new();
+
+    for i in 0..20 {
         unsafe {
             let config = ffi::avcodec_get_hw_config(codec, i as i32);
+            if !config.is_null() && (*config).device_type != ffi::AVHWDeviceType::AV_HWDEVICE_TYPE_NONE {
+                decoders.push((i, (*config).device_type));
+            }
+        }
+    }
+    if let Some(cuda) = decoders.iter().find(|(_, type_)| *type_ == ffi::AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA).copied() {
+        // Move CUDA to first position
+        decoders.remove(cuda.0);
+        decoders.insert(0, cuda);
+    }
+
+    log::debug!("Available decoders: {decoders:?}");
+
+    for (i, _) in decoders.iter().skip(index) {
+        unsafe {
+            let config = ffi::avcodec_get_hw_config(codec, *i as i32);
             if config.is_null() {
                 ::log::debug!("config null for {}", i);
                 continue;
@@ -146,7 +166,7 @@ pub fn init_device_for_decoding(index: usize, codec: *const ffi::AVCodec, decode
             }
             if let Some(dev) = devices.get(&(type_ as u64 + device_hash)) {
                 (*decoder_ctx.as_mut_ptr()).hw_device_ctx = dev.add_ref();
-                return Ok((i, type_, dev.name(), Some((*config).pix_fmt)));
+                return Ok((*i, type_, dev.name(), Some((*config).pix_fmt)));
             }
         }
     }
@@ -164,7 +184,7 @@ pub fn find_working_encoder(encoders: &[(&'static str, bool)], device: Option<&s
     }
 
     for x in encoders {
-        if let Some(mut enc) = encoder::find_by_name(x.0) {
+        if let Some(enc) = encoder::find_by_name(x.0) {
             if !x.1 { return (x.0, x.1, None); } // If not HW encoder
 
             for i in 0..20 {
@@ -239,7 +259,7 @@ pub unsafe fn get_transfer_formats_to_gpu(frame: *mut ffi::AVFrame) -> Vec<forma
         } else {
             pix_formats_to_vec(formats)
         }
-}
+    }
 }
 
 pub fn is_hardware_format(format: ffi::AVPixelFormat) -> bool {
@@ -248,11 +268,13 @@ pub fn is_hardware_format(format: ffi::AVPixelFormat) -> bool {
     format == ffi::AVPixelFormat::AV_PIX_FMT_VDPAU ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_D3D11 ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_D3D11VA_VLD ||
+    format == ffi::AVPixelFormat::AV_PIX_FMT_D3D12 ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_VIDEOTOOLBOX ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_MEDIACODEC ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_OPENCL ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_QSV ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_MMAL ||
+    format == ffi::AVPixelFormat::AV_PIX_FMT_VULKAN ||
     format == ffi::AVPixelFormat::AV_PIX_FMT_VAAPI
 }
 
@@ -266,7 +288,7 @@ pub fn initialize_hwframes_context(encoder_ctx: *mut ffi::AVCodecContext, _frame
     }
     if let Some(dev) = devices.get_mut(&(type_ as u64 + device_hash)) {
         unsafe {
-            if (*encoder_ctx).hw_device_ctx.is_null() {
+            if (*encoder_ctx).hw_device_ctx.is_null() && type_ != ffi::AVHWDeviceType::AV_HWDEVICE_TYPE_QSV {
                 (*encoder_ctx).hw_device_ctx = dev.add_ref();
                 log::debug!("Setting hw_device_ctx {:?}", (*encoder_ctx).hw_device_ctx);
             }
@@ -347,10 +369,10 @@ pub fn initialize_hwframes_context(encoder_ctx: *mut ffi::AVCodecContext, _frame
     Ok(())
 }
 
-pub fn find_best_matching_codec(codec: format::Pixel, supported: &[format::Pixel]) -> format::Pixel {
-    if supported.is_empty() { return format::Pixel::None; }
+pub fn find_best_matching_codec(codec: format::Pixel, supported: &[format::Pixel]) -> Option<format::Pixel> {
+    if supported.is_empty() { return None; }
 
-    if supported.contains(&codec) { return codec; }
+    if supported.contains(&codec) { return Some(codec); }
 
     let pairs = vec![
         (format::Pixel::P210LE, format::Pixel::YUV422P10LE),
@@ -359,13 +381,13 @@ pub fn find_best_matching_codec(codec: format::Pixel, supported: &[format::Pixel
         (format::Pixel::NV21,   format::Pixel::YUV420P),
     ];
     for (a, b) in pairs {
-        if codec == a && supported.contains(&b) { return b; }
-        if codec == b && supported.contains(&a) { return a; }
+        if codec == a && supported.contains(&b) { return Some(b); }
+        if codec == b && supported.contains(&a) { return Some(a); }
     }
 
     log::warn!("No matching codec, we need {:?} and supported are: {:?}", codec, supported);
 
-    *supported.first().unwrap()
+    None
 }
 
 // pub fn get_supported_pixel_formats(name: &str) -> Vec<ffi::AVPixelFormat> {

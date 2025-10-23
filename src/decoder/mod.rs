@@ -27,27 +27,47 @@ pub trait DecoderInterface {
 }
 
 pub struct Decoder {
-    inner: DecoderBackend
+    inner: DecoderBackend,
 }
 
 impl Decoder {
-    pub fn new(path: &str, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
+    pub fn new<'a, I: Into<IoType<'a>>>(input: I, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
+        let input = input.into();
+        let mut filename = match &input {
+            IoType::FileOrUrl(s) => Some(s.to_string()),
+            IoType::FileList(m) if !m.is_empty() => Some(m.keys().next().unwrap().to_string()),
+            _ => options.custom_options.get("filename").map(|s| s.to_string()),
+        };
+
+        // If we have only one file, unwrap it to a single IoType
+        let input = match input {
+            IoType::FileList(map) if map.len() == 1 => {
+                if filename.is_none() {
+                    filename = Some(map.keys().next().unwrap().to_string());
+                }
+                map.into_values().next().unwrap()
+            }
+            _ => input,
+        };
+
+        let filename_lower = filename.as_ref().map(|s| s.to_ascii_lowercase()).unwrap_or_default();
+
         #[cfg(feature = "braw")]
-        if path.to_ascii_lowercase().ends_with(".braw") {
+        if filename_lower.ends_with(".braw") {
             return Ok(Self {
-                inner: DecoderBackend::BrawDecoder(braw::BrawDecoder::new(path, options)?)
+                inner: DecoderBackend::BrawDecoder(braw::BrawDecoder::new(&filename.unwrap_or_default(), options)?),
             });
         }
         #[cfg(feature = "r3d")]
-        if path.to_ascii_lowercase().ends_with(".r3d") || path.to_ascii_lowercase().ends_with(".nev") {
+        if filename_lower.ends_with(".r3d") || filename_lower.ends_with(".nev") {
             return Ok(Self {
-                inner: DecoderBackend::R3dDecoder(r3d::R3dDecoder::new(path, options)?)
+                inner: DecoderBackend::R3dDecoder(r3d::R3dDecoder::new(input, filename.as_deref(), options)?),
             });
         }
         #[cfg(feature = "ffmpeg")]
         {
             return Ok(Self {
-                inner: DecoderBackend::FfmpegDecoder(ffmpeg::FfmpegDecoder::new(path, options)?)
+                inner: DecoderBackend::FfmpegDecoder(ffmpeg::FfmpegDecoder::new(input, filename.as_deref(), options)?),
             });
         }
 
@@ -76,7 +96,7 @@ pub enum DecoderBackend {
     #[cfg(feature = "braw")]
     BrawDecoder(braw::BrawDecoder),
     #[cfg(feature = "r3d")]
-    R3dDecoder(r3d::R3dDecoder)
+    R3dDecoder(r3d::R3dDecoder),
 }
 
 pub struct NullDecoder;

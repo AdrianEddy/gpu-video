@@ -1,9 +1,4 @@
-use std::{
-    collections::HashMap,
-    fmt,
-    hash::{Hash, Hasher},
-    sync::{Arc},
-};
+use std::{ collections::HashMap, fmt, hash::{ Hash, Hasher }, sync::Arc };
 use parking_lot::Mutex;
 use crate::VideoProcessingError;
 

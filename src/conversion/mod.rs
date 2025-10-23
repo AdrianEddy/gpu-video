@@ -2,5 +2,4 @@
 // Copyright © 2023 Adrian <adrian.eddy at gmail>
 
 pub struct Converter {
-
 }

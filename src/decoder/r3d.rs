@@ -222,18 +222,15 @@ impl R3dDecoder {
 
         match input {
             IoType::Bytes(_) |
-            IoType::ReadStream { .. } |
-            IoType::WriteStream { .. } |
             IoType::ReadSeekStream { .. } |
-            IoType::ReadWriteSeekStream { .. } |
-            IoType::WriteSeekStream { .. }  => {
+            IoType::ReadWriteSeekStream { .. }  => {
                 // Install global custom IO
                 let _io = CUSTOM_IO.get_or_init(move || {
                     Mutex::new(CustomIO::install(Box::new(StreamIo::with_filesystem_fallback())))
                 });
             }
             IoType::FileList(ref map) => {
-                if map.values().any(|v| matches!(v, IoType::Bytes(_) | IoType::ReadStream { .. } | IoType::WriteStream { .. } | IoType::ReadSeekStream { .. } | IoType::ReadWriteSeekStream { .. } | IoType::WriteSeekStream { .. })) {
+                if map.values().any(|v| matches!(v, IoType::Bytes(_) | IoType::ReadSeekStream { .. } | IoType::ReadWriteSeekStream { .. })) {
                     // Install global custom IO
                     let _io = CUSTOM_IO.get_or_init(move || {
                         Mutex::new(CustomIO::install(Box::new(StreamIo::with_filesystem_fallback())))
@@ -247,6 +244,29 @@ impl R3dDecoder {
         let clip = match input {
             IoType::FileOrUrl(s) => {
                 Clip::from_path(s.as_ref())?
+            },
+            IoType::Callback { filename, callback } => {
+                // Install global custom IO
+                let _io = CUSTOM_IO.get_or_init(move || {
+                    let mut io = StreamIo::with_filesystem_fallback();
+                    io.set_callback(move |path| {
+                        match callback(path) {
+                            Ok(IoType::Bytes(buffer)) => {
+                                let size = buffer.len();
+                                Some((Arc::new(std::sync::Mutex::new(std::io::Cursor::new(buffer))), Some(size as u64)))
+                            },
+                            Ok(IoType::ReadSeekStream { stream, size_hint }) => {
+                                Some((Arc::new(std::sync::Mutex::new(stream)), size_hint))
+                            },
+                            Ok(IoType::ReadWriteSeekStream { stream, size_hint }) => {
+                                Some((Arc::new(std::sync::Mutex::new(stream)), size_hint))
+                            },
+                            _ => None,
+                        }
+                    });
+                    Mutex::new(CustomIO::install(Box::new(io)))
+                });
+                Clip::from_path(&filename)?
             },
             IoType::Bytes(buffer) => {
                 if let Some(io) = CUSTOM_IO.get() {
@@ -299,7 +319,6 @@ impl R3dDecoder {
                     }
                     filenames.sort();
                 }
-                dbg!(&filenames);
                 let first_key = filenames.first().ok_or(VideoProcessingError::DecoderNotFound)?;
                 Clip::from_path(first_key)?
             },
@@ -447,7 +466,7 @@ fn parse_pixel_type(value: &str) -> Option<VideoPixelType> {
     }
 }
 
-fn to_stream_io(io: &CustomIO) -> &StreamIo<'_> {
+fn to_stream_io<'a>(io: &CustomIO<'a>) -> &'a StreamIo<'a> {
     let dyn_ioi: &dyn IoInterface = &**io.inner();
     // 1) widen to raw fat pointer
     let raw: *const dyn IoInterface = dyn_ioi;

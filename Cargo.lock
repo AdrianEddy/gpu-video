@@ -789,7 +789,7 @@ checksum = "69cdb34c158ceb288df11e18b4bd39de994f6657d83847bdffdbd7f346754b0f"
 [[package]]
 name = "r3d-rs"
 version = "0.1.0"
-source = "git+https://github.com/AdrianEddy/r3d-rs/#380be89c4e52765ebb15415ea64e8cb23c4a2806"
+source = "git+https://github.com/AdrianEddy/r3d-rs/#3f2b96b147b928fe3f5d76add277b404010b3ec3"
 dependencies = [
  "bitflags",
  "cpp",

@@ -18,6 +18,10 @@ pub enum IoType<'a> {
     // in-memory bytes (owned or borrowed)
     Bytes(Cow<'a, [u8]>),
 
+    // Custom callback
+    // Don't use with FileList
+    Callback { filename: String, callback: Box<dyn Fn(&str) -> Result<IoType<'static>, std::io::Error>> },
+
     // Streams
     ReadStream          { stream: Box<dyn Read + 'a>,          size_hint: Option<u64> },
     WriteStream         { stream: Box<dyn Write + 'a>,         size_hint: Option<u64> },

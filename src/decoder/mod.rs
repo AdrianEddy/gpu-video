@@ -35,6 +35,7 @@ impl Decoder {
         let input = input.into();
         let mut filename = match &input {
             IoType::FileOrUrl(s) => Some(s.to_string()),
+            IoType::Callback { filename: s, .. } => Some(s.to_string()),
             IoType::FileList(m) if !m.is_empty() => Some(m.keys().next().unwrap().to_string()),
             _ => options.custom_options.get("filename").map(|s| s.to_string()),
         };

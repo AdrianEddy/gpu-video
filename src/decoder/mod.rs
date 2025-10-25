@@ -33,12 +33,14 @@ pub struct Decoder {
 impl Decoder {
     pub fn new<'a, I: Into<IoType<'a>>>(input: I, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
         let input = input.into();
-        let mut filename = match &input {
-            IoType::FileOrUrl(s) => Some(s.to_string()),
-            IoType::Callback { filename: s, .. } => Some(s.to_string()),
-            IoType::FileList(m) if !m.is_empty() => Some(m.keys().next().unwrap().to_string()),
-            _ => options.custom_options.get("filename").map(|s| s.to_string()),
-        };
+        let mut filename = options.custom_options.get("filename")
+            .map(|s| s.to_string())
+            .or_else(|| match &input {
+                IoType::FileOrUrl(s) => Some(s.to_string()),
+                IoType::Callback { filename: s, .. } => Some(s.to_string()),
+                IoType::FileList(m) if !m.is_empty() => Some(m.keys().next().unwrap().to_string()),
+                _ => None,
+            });
 
         // If we have only one file, unwrap it to a single IoType
         let input = match input {

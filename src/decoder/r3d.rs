@@ -299,7 +299,10 @@ impl R3dDecoder {
                     let io = io.lock();
                     let stream_io = to_stream_io(&*io);
                     for (name, item) in map {
-                        filenames.push(name.clone());
+                        let name_lower = name.to_ascii_lowercase();
+                        if name_lower.contains(".r3d") || name_lower.contains(".nev") {
+                            filenames.push(name.clone());
+                        }
                         match item {
                             IoType::FileOrUrl(s) => {
                                 filenames.push(s.to_string());

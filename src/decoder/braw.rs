@@ -174,7 +174,7 @@ impl BrawDecoder {
         let (codec, device, context, queue) = {
             let lib2 = match lib {
                 Ok(mutex) => mutex,
-                Err(e) => { return Err(e.clone().into()); }
+                Err(e) => { log::error!("Failed to init BRAW SDK: {e:?}"); return Err(e.clone().into()); }
             };
             let factory = lib2.lock();
             let codec = factory.0.create_codec()?;
@@ -218,7 +218,13 @@ impl BrawDecoder {
 
         let resmgr = codec.configuration_ex()?.resource_manager()?;
 
-        let clip = codec.open_clip(path)?;
+        let clip = match codec.open_clip(path) {
+            Ok(c) => c,
+            Err(e) => {
+                log::error!("Failed to open BRAW clip '{path}': {e:?}");
+                return Err(e.into());
+            }
+        };
 
         let mut stream_state = Vec::new();
 

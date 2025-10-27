@@ -33,6 +33,7 @@ pub struct Decoder {
 impl Decoder {
     pub fn new<'a, I: Into<IoType<'a>>>(input: I, options: DecoderOptions) -> Result<Self, VideoProcessingError> {
         let input = input.into();
+        // Filename is used to detect the format by extension
         let mut filename = options.custom_options.get("filename")
             .map(|s| s.to_string())
             .or_else(|| match &input {
@@ -41,6 +42,14 @@ impl Decoder {
                 IoType::FileList(m) if !m.is_empty() => Some(m.keys().next().unwrap().to_string()),
                 _ => None,
             });
+
+        // Path is full path to the file, used to open the file by the decoder
+        let mut path = match &input {
+            IoType::FileOrUrl(s) => Some(s.to_string()),
+            IoType::Callback { filename: s, .. } => Some(s.to_string()),
+            IoType::FileList(m) if !m.is_empty() => Some(m.keys().next().unwrap().to_string()),
+            _ => options.custom_options.get("filename").map(|s| s.to_string()),
+        };
 
         // If we have only one file, unwrap it to a single IoType
         let input = match input {
@@ -58,19 +67,19 @@ impl Decoder {
         #[cfg(feature = "braw")]
         if filename_lower.ends_with(".braw") {
             return Ok(Self {
-                inner: DecoderBackend::BrawDecoder(braw::BrawDecoder::new(&filename.unwrap_or_default(), options)?),
+                inner: DecoderBackend::BrawDecoder(braw::BrawDecoder::new(&path.or(filename).unwrap_or_default(), options)?),
             });
         }
         #[cfg(feature = "r3d")]
         if filename_lower.ends_with(".r3d") || filename_lower.ends_with(".nev") {
             return Ok(Self {
-                inner: DecoderBackend::R3dDecoder(r3d::R3dDecoder::new(input, filename.as_deref(), options)?),
+                inner: DecoderBackend::R3dDecoder(r3d::R3dDecoder::new(input, path.or(filename).as_deref(), options)?),
             });
         }
         #[cfg(feature = "ffmpeg")]
         {
             return Ok(Self {
-                inner: DecoderBackend::FfmpegDecoder(ffmpeg::FfmpegDecoder::new(input, filename.as_deref(), options)?),
+                inner: DecoderBackend::FfmpegDecoder(ffmpeg::FfmpegDecoder::new(input, path.or(filename).as_deref(), options)?),
             });
         }
 

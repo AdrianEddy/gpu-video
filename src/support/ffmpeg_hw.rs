@@ -128,9 +128,9 @@ pub fn init_device_for_decoding(index: usize, codec: *const ffi::AVCodec, decode
             }
         }
     }
-    if let Some(cuda) = decoders.iter().find(|(_, type_)| *type_ == ffi::AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA).copied() {
+    if let Some(pos) = decoders.iter().position(|(_, type_)| *type_ == ffi::AVHWDeviceType::AV_HWDEVICE_TYPE_CUDA) {
         // Move CUDA to first position
-        decoders.remove(cuda.0);
+        let cuda = decoders.remove(pos);
         decoders.insert(0, cuda);
     }
 

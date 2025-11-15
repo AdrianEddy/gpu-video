@@ -85,6 +85,9 @@ pub struct VideoInfo {
     pub width: u32,
     pub height: u32,
     pub bitrate: f64, // in Mbps
+    pub rotation: i32,
+    pub created_at: Option<u64>,
+    pub metadata: HashMap<String, String>,
 }
 
 #[derive(Debug, Clone, Copy)]

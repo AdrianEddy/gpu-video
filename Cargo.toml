@@ -15,6 +15,7 @@ simple-log = "2.4"
 enum_dispatch = "0.3"
 crc32fast = "1.5"
 parking_lot = "0.12"
+chrono = { version = "0.4", optional = true }
 ffmpeg-next = { version = "8.0.0", git = "https://github.com/AdrianEddy/rust-ffmpeg/", rev = "ca9b4bc", optional = true, default-features = false, features = ["codec", "filter", "format", "software-resampling", "software-scaling"] }
 
 braw = { git = "https://github.com/AdrianEddy/braw-rs/", optional = true }
@@ -33,7 +34,7 @@ features = [ "Win32_System_Com", "Win32_System_Console", "Win32_System_SystemSer
 [features]
 default = ["link-libs"]
 link-libs = ["r3d-rs/link"]
-ffmpeg = ["dep:ffmpeg-next"]
+ffmpeg = ["dep:ffmpeg-next", "dep:chrono"]
 braw = ["dep:braw"]
 r3d = ["dep:r3d-rs"]
 

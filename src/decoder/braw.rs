@@ -121,6 +121,13 @@ impl DecoderInterface for BrawDecoder {
     }
 
     fn get_video_info(&self) -> Result<VideoInfo, VideoProcessingError> {
+        let mut metadata = HashMap::new();
+        if let Ok(meta) = self.clip.metadata_iter() {
+            for (k, v) in meta {
+                metadata.insert(k.to_string(), format!("{v}"));
+            }
+        }
+
         Ok(VideoInfo {
             duration_ms: self.frame_count as f64 * 1000.0 / self.frame_rate,
             frame_count: self.frame_count as usize,
@@ -128,6 +135,9 @@ impl DecoderInterface for BrawDecoder {
             width:       self.clip.width()?,
             height:      self.clip.height()?,
             bitrate:     0.0,
+            created_at:  None, // TODO?
+            rotation:    0, // TODO?
+            metadata:    metadata,
         })
     }
 

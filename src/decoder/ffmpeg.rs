@@ -43,6 +43,8 @@ impl DecoderInterface for FfmpegDecoder {
     }
 
     fn get_video_info(&self) -> Result<VideoInfo, VideoProcessingError> {
+        let created_at = self.context.metadata().get("creation_time").and_then(|x| chrono::DateTime::parse_from_rfc3339(x).ok()).map(|x| x.timestamp_millis() as u64 / 1000);
+        let metadata = self.context.metadata().iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<HashMap<_, _>>();
         if let Some(stream) = self.context.streams().best(media::Type::Video) {
             let codec = codec::context::Context::from_parameters(stream.parameters())?;
             if let Ok(video) = codec.decoder().video() {
@@ -52,6 +54,28 @@ impl DecoderInterface for FfmpegDecoder {
                 let mut frames = stream.frames() as usize;
                 if frames == 0 { frames = (stream.duration() as f64 * f64::from(stream.time_base()) * f64::from(stream.rate())) as usize; }
 
+                let rotation = {
+                    let mut theta = 0.0;
+                    if let Some(rotate_tag) = stream.metadata().get("rotate") {
+                        if let Ok(num) = rotate_tag.parse::<f64>() {
+                            theta = num;
+                        }
+                    }
+                    if theta == 0.0 {
+                        for side_data in stream.side_data() {
+                            if side_data.kind() == codec::packet::side_data::Type::DisplayMatrix {
+                                let display_matrix = side_data.data();
+                                if display_matrix.len() == 9*4 {
+                                    theta = -unsafe { ffmpeg_next::ffi::av_display_rotation_get(display_matrix.as_ptr() as *const i32) };
+                                }
+                            }
+                        }
+                    }
+
+                    theta -= 360.0 * (theta / 360.0 + 0.9 / 360.0).floor();
+                    theta as i32
+                };
+
                 return Ok(VideoInfo {
                     duration_ms: stream.duration() as f64 * f64::from(stream.time_base()) * 1000.0,
                     frame_count: frames,
@@ -59,6 +83,9 @@ impl DecoderInterface for FfmpegDecoder {
                     width: video.width(),
                     height: video.height(),
                     bitrate: bitrate as f64 / 1024.0 / 1024.0,
+                    rotation,
+                    created_at,
+                    metadata
                 });
             }
         }

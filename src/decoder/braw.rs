@@ -153,6 +153,7 @@ impl DecoderInterface for BrawDecoder {
                 format: data.resource_format()?,
                 buffer_pool: self.buffer_pool.clone(),
                 resource_manager: self.resource_manager.clone(),
+                raw_frame: frame.clone(),
                 frame: data,
                 cpu_frame: None,
             }.into())))

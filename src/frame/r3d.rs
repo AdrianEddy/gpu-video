@@ -13,6 +13,13 @@ pub struct R3dVideoFrame {
 	pub(crate) height: u32,
 	pub(crate) pixel_type: VideoPixelType,
 	pub(crate) cpu_frame: Option<PooledFrame<AlignedBuffer, R3dTypeAndFormat, R3dBufferFactory>>,
+	pub(crate) metadata: std::collections::HashMap<String, r3d_rs::Value>,
+}
+
+impl R3dVideoFrame {
+	pub fn metadata(&self) -> &std::collections::HashMap<String, r3d_rs::Value> {
+		&self.metadata
+	}
 }
 
 impl VideoFrameInterface for R3dVideoFrame {

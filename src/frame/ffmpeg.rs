@@ -17,6 +17,15 @@ pub struct FfmpegVideoFrame {
     pub(crate) swframe: Option<ffmpeg_next::frame::Video>
 }
 
+impl FfmpegVideoFrame {
+    pub fn raw_frame(&self) -> &ffmpeg_next::frame::Video {
+        &self.avframe
+    }
+    pub fn raw_sw_frame(&self) -> Option<&ffmpeg_next::frame::Video> {
+        self.swframe.as_ref()
+    }
+}
+
 impl VideoFrameInterface for FfmpegVideoFrame {
     fn width(&self)  -> u32 { self.avframe.width() }
     fn height(&self) -> u32 { self.avframe.height() }

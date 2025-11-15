@@ -125,16 +125,26 @@ impl DecoderInterface for R3dDecoder {
         job.set_video_frame_no(self.current_frame as usize);
         job.set_image_processing(&self.image_settings);
         job.set_output_buffer(buf_ptr, buf_len);
+        job.allocate_frame_metadata();
 
-        let _job = pollster::block_on(self.decoder.decode(job)?)?; // Block until done
+        let job = pollster::block_on(self.decoder.decode(job)?)?; // Block until done
 
         let timestamp_us = self.current_frame as i64 * 1_000_000 / self.frame_rate as i64;
         self.current_frame += 1;
+
+        let mut metadata = HashMap::new();
+
+        if let Ok(meta) = job.metadata() {
+            for (k, v) in meta.iter() {
+                metadata.insert(k, v);
+            }
+        }
 
         Ok(Some(Frame::Video(R3dVideoFrame {
             timestamp_us,
             width,
             height,
+            metadata,
             pixel_type: self.pixel_type,
             cpu_frame: Some(pooled),
         }.into())))

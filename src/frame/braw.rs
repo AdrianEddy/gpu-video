@@ -14,9 +14,19 @@ pub struct BrawVideoFrame {
     pub(crate) height: u32,
     pub(crate) format: BlackmagicRawResourceFormat,
     pub(crate) frame: BlackmagicRawProcessedImage,
+    pub(crate) raw_frame: BlackmagicRawFrame,
     pub(crate) resource_manager: BlackmagicRawResourceManager,
     pub(crate) buffer_pool: Arc<BufferPool<BrawRawResource, BrawTypeAndFormat, BrawResourceFactory>>,
     pub(crate) cpu_frame: Option<PooledFrame<BrawRawResource, BrawTypeAndFormat, BrawResourceFactory>>,
+}
+
+impl BrawVideoFrame {
+    pub fn raw_frame(&self) -> &BlackmagicRawFrame {
+        &self.raw_frame
+    }
+    pub fn processed_frame(&self) -> &BlackmagicRawProcessedImage {
+        &self.frame
+    }
 }
 
 impl VideoFrameInterface for BrawVideoFrame {

@@ -134,7 +134,7 @@ pub fn init_device_for_decoding(index: usize, codec: *const ffi::AVCodec, decode
         decoders.insert(0, cuda);
     }
 
-    log::debug!("Available decoders: {decoders:?}");
+    //log::debug!("Available decoders: {decoders:?}");
 
     for (i, _) in decoders.iter().skip(index) {
         unsafe {
@@ -151,7 +151,7 @@ pub fn init_device_for_decoding(index: usize, codec: *const ffi::AVCodec, decode
             if cfg!(target_os = "windows") && type_ == ffi::AVHWDeviceType::AV_HWDEVICE_TYPE_VAAPI {
                 continue;
             }
-            ::log::debug!("[dec] codec type {:?} {}", type_, i);
+            // ::log::debug!("[dec] codec type {:?} {}", type_, i);
             let mut devices = DEVICES.lock();
             let mut device_hash = 0;
             if let Some(dev_name) = device {

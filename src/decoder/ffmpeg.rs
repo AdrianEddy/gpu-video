@@ -131,7 +131,7 @@ impl DecoderInterface for FfmpegDecoder {
                         let hwaccel_device = self.open_options.custom_options.get("hwaccel_device").cloned();
 
                         let hw = crate::support::ffmpeg_hw::init_device_for_decoding(gpu_index, unsafe { codec.as_ptr() }, &mut ctx, hwaccel_device.as_deref())?;
-                        log::debug!("Selected HW backend {:?} ({}) with format {:?}", hw.1, hw.2, hw.3);
+                        // log::debug!("Selected HW backend {:?} ({}) with format {:?}", hw.1, hw.2, hw.3);
                         // hw_backend = hw.2;
                     }
 

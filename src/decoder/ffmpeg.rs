@@ -121,7 +121,7 @@ impl DecoderInterface for FfmpegDecoder {
                             } else if (desc.flags & ffi::AV_PIX_FMT_FLAG_RGB as u64) != 0 {
                                 Some(format!("{bit_depth}-bit RGB ({name})"))
                             } else {
-                                let chroma = chroma_from_log2(desc.log2_chroma_w as u8, desc.log2_chroma_h as u8)
+                                let chroma = chroma_from_log2(desc.log2_chroma_w as u8, desc.log2_chroma_h as u8);
                                 Some(format!("{bit_depth}-bit {chroma} ({name})"))
                             }
                         } else {

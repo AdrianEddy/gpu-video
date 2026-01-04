@@ -108,7 +108,6 @@ impl DecoderInterface for FfmpegDecoder {
                         if !desc.is_null() {
                             let desc = unsafe { &*desc };
                             let bit_depth = desc.comp[0].depth as u8;
-                            let is_rgb = ;
 
                             let name_c = unsafe { ffi::av_get_pix_fmt_name(pix_fmt.into()) };
                             let name = if name_c.is_null() {

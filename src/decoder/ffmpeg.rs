@@ -5,7 +5,7 @@ use super::*;
 use crate::types::VideoProcessingError;
 use crate::frame::ffmpeg::{ FfmpegAudioFrame, FfmpegVideoFrame };
 
-use ffmpeg_next::{ codec, format, frame, media, Dictionary, rescale, rescale::Rescale };
+use ffmpeg_next::{ codec, format, frame, media, Dictionary, rescale, rescale::Rescale, ffi };
 
 pub enum OpenedDecoder {
     Video(ffmpeg_next::decoder::Video),
@@ -47,7 +47,8 @@ impl DecoderInterface for FfmpegDecoder {
         let metadata = self.context.metadata().iter().map(|(k, v)| (k.to_string(), v.to_string())).collect::<HashMap<_, _>>();
         if let Some(stream) = self.context.streams().best(media::Type::Video) {
             let codec = codec::context::Context::from_parameters(stream.parameters())?;
-            if let Ok(video) = codec.decoder().video() {
+            let codec_name = codec.id().name().to_ascii_uppercase();
+            if let Ok(mut video) = codec.decoder().video() {
                 let mut bitrate = video.bit_rate();
                 if bitrate == 0 { bitrate = self.context.bit_rate() as usize; }
 
@@ -66,7 +67,7 @@ impl DecoderInterface for FfmpegDecoder {
                             if side_data.kind() == codec::packet::side_data::Type::DisplayMatrix {
                                 let display_matrix = side_data.data();
                                 if display_matrix.len() == 9*4 {
-                                    theta = -unsafe { ffmpeg_next::ffi::av_display_rotation_get(display_matrix.as_ptr() as *const i32) };
+                                    theta = -unsafe { ffi::av_display_rotation_get(display_matrix.as_ptr() as *const i32) };
                                 }
                             }
                         }
@@ -74,6 +75,58 @@ impl DecoderInterface for FfmpegDecoder {
 
                     theta -= 360.0 * (theta / 360.0 + 0.9 / 360.0).floor();
                     theta as i32
+                };
+
+                let pixel_format = {
+                    let mut pix_fmt = video.format();
+                    /*if pix_fmt == ffmpeg_next::format::Pixel::None {
+                        let stream_index = stream.index();
+                        let mut frame = ffmpeg_next::util::frame::Video::empty();
+                        'outer: for (stream, packet) in self.context.packets() {
+                            if stream.index() != stream_index {
+                                continue;
+                            }
+                            video.send_packet(&packet).ok();
+                            while video.receive_frame(&mut frame).is_ok() {
+                                pix_fmt = frame.format();
+                                break 'outer;
+                            }
+                        }
+                        if pix_fmt == ffmpeg_next::format::Pixel::None {
+                            video.send_eof().ok();
+                            let mut frame = ffmpeg_next::util::frame::Video::empty();
+                            if video.receive_frame(&mut frame).is_ok() {
+                                pix_fmt = frame.format();
+                            }
+                        }
+                    }*/
+
+                    if pix_fmt == ffmpeg_next::format::Pixel::None {
+                        None
+                    } else {
+                        let desc = unsafe { ffi::av_pix_fmt_desc_get(pix_fmt.into()) };
+                        if !desc.is_null() {
+                            let desc = unsafe { &*desc };
+                            let bit_depth = desc.comp[0].depth as u8;
+                            let is_rgb = (desc.flags & ffi::AV_PIX_FMT_FLAG_RGB as u64) != 0;
+
+                            let chroma = if is_rgb {
+                                "RGB".to_string()
+                            } else {
+                                chroma_from_log2(desc.log2_chroma_w as u8, desc.log2_chroma_h as u8)
+                            };
+                            let name_c = unsafe { ffi::av_get_pix_fmt_name(pix_fmt.into()) };
+                            let name = if name_c.is_null() {
+                                "unknown".to_string()
+                            } else {
+                                unsafe { std::ffi::CStr::from_ptr(name_c) }.to_string_lossy().into_owned()
+                            };
+
+                            Some(format!("{bit_depth}-bit {chroma} ({name})"))
+                        } else {
+                            Some(format!("{pix_fmt:?}").into())
+                        }
+                    }
                 };
 
                 return Ok(VideoInfo {
@@ -84,6 +137,8 @@ impl DecoderInterface for FfmpegDecoder {
                     height: video.height(),
                     bitrate: bitrate as f64 / 1024.0 / 1024.0,
                     rotation,
+                    codec: Some(codec_name),
+                    pixel_format: pixel_format,
                     created_at,
                     metadata
                 });
@@ -256,5 +311,16 @@ impl FfmpegDecoder {
 
             stream_state
         })
+    }
+}
+
+fn chroma_from_log2(cw: u8, ch: u8) -> String {
+    match (cw, ch) {
+        (0, 0) => "4:4:4".to_string(),
+        (1, 0) => "4:2:2".to_string(),
+        (1, 1) => "4:2:0".to_string(),
+        (2, 0) => "4:1:1".to_string(),
+        (2, 1) => "4:1:0".to_string(),
+        _ => format!("unknown (log2_chroma_w={cw}, log2_chroma_h={ch})"),
     }
 }

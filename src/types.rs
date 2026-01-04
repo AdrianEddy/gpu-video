@@ -86,6 +86,8 @@ pub struct VideoInfo {
     pub height: u32,
     pub bitrate: f64, // in Mbps
     pub rotation: i32,
+    pub codec: Option<String>,
+    pub pixel_format: Option<String>,
     pub created_at: Option<u64>,
     pub metadata: HashMap<String, String>,
 }

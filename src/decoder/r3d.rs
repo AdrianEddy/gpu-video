@@ -103,6 +103,8 @@ impl DecoderInterface for R3dDecoder {
             bitrate: 0.0,
 
             created_at:  None, // TODO?
+            codec:       Some("RED RAW".to_string()),
+            pixel_format: None,
             rotation:    0, // TODO?
             metadata:    metadata,
         })

@@ -117,7 +117,7 @@ impl DecoderInterface for FfmpegDecoder {
                             };
 
                             if (desc.flags & ffi::AV_PIX_FMT_FLAG_BAYER as u64) != 0 {
-                                Some(name.to_ascii_uppercase())
+                                Some(name.to_ascii_uppercase().replace("BAYER_", "Bayer "))
                             } else if (desc.flags & ffi::AV_PIX_FMT_FLAG_RGB as u64) != 0 {
                                 Some(format!("{bit_depth}-bit RGB ({name})"))
                             } else {

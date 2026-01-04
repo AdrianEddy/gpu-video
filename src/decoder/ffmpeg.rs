@@ -108,13 +108,8 @@ impl DecoderInterface for FfmpegDecoder {
                         if !desc.is_null() {
                             let desc = unsafe { &*desc };
                             let bit_depth = desc.comp[0].depth as u8;
-                            let is_rgb = (desc.flags & ffi::AV_PIX_FMT_FLAG_RGB as u64) != 0;
+                            let is_rgb = ;
 
-                            let chroma = if is_rgb {
-                                "RGB".to_string()
-                            } else {
-                                chroma_from_log2(desc.log2_chroma_w as u8, desc.log2_chroma_h as u8)
-                            };
                             let name_c = unsafe { ffi::av_get_pix_fmt_name(pix_fmt.into()) };
                             let name = if name_c.is_null() {
                                 "unknown".to_string()
@@ -122,7 +117,14 @@ impl DecoderInterface for FfmpegDecoder {
                                 unsafe { std::ffi::CStr::from_ptr(name_c) }.to_string_lossy().into_owned()
                             };
 
-                            Some(format!("{bit_depth}-bit {chroma} ({name})"))
+                            if (desc.flags & ffi::AV_PIX_FMT_FLAG_BAYER as u64) != 0 {
+                                Some(name.to_ascii_uppercase())
+                            } else if (desc.flags & ffi::AV_PIX_FMT_FLAG_RGB as u64) != 0 {
+                                Some(format!("{bit_depth}-bit RGB ({name})"))
+                            } else {
+                                let chroma = chroma_from_log2(desc.log2_chroma_w as u8, desc.log2_chroma_h as u8)
+                                Some(format!("{bit_depth}-bit {chroma} ({name})"))
+                            }
                         } else {
                             Some(format!("{pix_fmt:?}").into())
                         }

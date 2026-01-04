@@ -150,10 +150,15 @@ impl DecoderInterface for FfmpegDecoder {
     fn next_frame(&mut self) -> Result<Option<Frame>, VideoProcessingError> {
         let fetch_new_packet = unsafe { self.current_packet.is_empty() };
         if fetch_new_packet && !self.packets_ended {
+            let mut errors = 0;
             loop {
                 match self.current_packet.read(&mut self.context) {
-                    Ok(..) => { break; },
+                    Ok(..) => {
+                        errors = 0;
+                        break;
+                    },
                     Err(ffmpeg_next::Error::Eof) => {
+                        errors = 0;
                         self.packets_ended = true;
                         for state in &mut self.stream_state {
                             match &mut state.decoder {
@@ -164,7 +169,13 @@ impl DecoderInterface for FfmpegDecoder {
                         }
                         break;
                     },
-                    Err(e) => { println!("other err {e:?}"); },
+                    Err(e) => {
+                        log::error!("FFmpeg error {e:?}");
+                        errors += 1;
+                        if errors > 10 {
+                            break;
+                        }
+                    },
                 }
             }
         }

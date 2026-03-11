@@ -187,7 +187,13 @@ impl VideoFrameInterface for FfmpegVideoFrame {
         for index in 0..input_frame.planes() {
             // TODO: plane dimensions
             unsafe {
-                ret.push(std::slice::from_raw_parts_mut((*input_frame.as_mut_ptr()).data[index], input_frame.stride(index) * input_frame.plane_height(index) as usize));
+                let stride = input_frame.stride(index) as i64;
+                let plane_height = input_frame.plane_height(index) as usize;
+                if stride < 0 {
+                    ret.push(std::slice::from_raw_parts_mut((*input_frame.as_mut_ptr()).data[index].offset((stride * (plane_height as i64 - 1)) as isize), (-stride) as usize * plane_height));
+                } else {
+                    ret.push(std::slice::from_raw_parts_mut((*input_frame.as_mut_ptr()).data[index], stride as usize * plane_height as usize));
+                }
             }
         }
         Ok(ret)

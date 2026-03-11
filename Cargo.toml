@@ -23,7 +23,7 @@ r3d-rs = { git = "https://github.com/AdrianEddy/r3d-rs/", default-features = fal
 pollster = "0.4"
 
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies.metal]
-version = "0.32.0"
+version = "0.33.0"
 [target.'cfg(any(target_os = "macos", target_os = "ios"))'.dependencies.objc-foundation]
 version = "0.1.1"
 [target.'cfg(target_os = "windows")'.dependencies.windows]

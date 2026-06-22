@@ -276,7 +276,6 @@ impl FfmpegDecoder {
             IoType::ReadSeekStream      { stream, .. } => { input_from_stream(StreamIo::from_read_seek(stream)?,         filename, Some(options_avdict))? },
             IoType::WriteStream         { stream, .. } => { input_from_stream(StreamIo::from_write(stream)?,             filename, Some(options_avdict))? },
             IoType::WriteSeekStream     { stream, .. } => { input_from_stream(StreamIo::from_write_seek(stream)?,        filename, Some(options_avdict))? },
-            IoType::ReadWriteSeekStream { stream, .. } => { input_from_stream(StreamIo::from_read_write_seek(stream)?,   filename, Some(options_avdict))? },
             _ => {
                 log::error!("Unknown input");
                 return Err(VideoProcessingError::DecoderNotFound);

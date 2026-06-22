@@ -243,15 +243,14 @@ impl R3dDecoder {
 
         match input {
             IoType::Bytes(_) |
-            IoType::ReadSeekStream { .. } |
-            IoType::ReadWriteSeekStream { .. }  => {
+            IoType::ReadSeekStream { .. }  => {
                 // Install global custom IO
                 let _io = CUSTOM_IO.get_or_init(move || {
                     Mutex::new(CustomIO::install(Box::new(StreamIo::with_filesystem_fallback())))
                 });
             }
             IoType::FileList(ref map) => {
-                if map.values().any(|v| matches!(v, IoType::Bytes(_) | IoType::ReadSeekStream { .. } | IoType::ReadWriteSeekStream { .. })) {
+                if map.values().any(|v| matches!(v, IoType::Bytes(_) | IoType::ReadSeekStream { .. })) {
                     // Install global custom IO
                     let _io = CUSTOM_IO.get_or_init(move || {
                         Mutex::new(CustomIO::install(Box::new(StreamIo::with_filesystem_fallback())))
@@ -279,9 +278,6 @@ impl R3dDecoder {
                             Ok(IoType::ReadSeekStream { stream, size_hint }) => {
                                 Some((Arc::new(std::sync::Mutex::new(stream)), size_hint))
                             },
-                            Ok(IoType::ReadWriteSeekStream { stream, size_hint }) => {
-                                Some((Arc::new(std::sync::Mutex::new(stream)), size_hint))
-                            },
                             _ => None,
                         }
                     });
@@ -299,14 +295,6 @@ impl R3dDecoder {
                 Clip::from_path(filename.unwrap_or("file.R3D"))?
             },
             IoType::ReadSeekStream { stream, size_hint } => {
-                if let Some(io) = CUSTOM_IO.get() {
-                    let io = io.lock();
-                    let stream_io = to_stream_io(&*io);
-                    stream_io.insert(filename.unwrap_or("file.R3D").to_string(), stream, size_hint);
-                }
-                Clip::from_path(filename.unwrap_or("file.R3D"))?
-            },
-            IoType::ReadWriteSeekStream { stream, size_hint } => {
                 if let Some(io) = CUSTOM_IO.get() {
                     let io = io.lock();
                     let stream_io = to_stream_io(&*io);
@@ -333,9 +321,6 @@ impl R3dDecoder {
                                 stream_io.insert(name.clone(), std::io::Cursor::new(buffer), Some(size as u64));
                             },
                             IoType::ReadSeekStream { stream, size_hint } => {
-                                stream_io.insert(name.clone(), stream, size_hint);
-                            },
-                            IoType::ReadWriteSeekStream { stream, size_hint } => {
                                 stream_io.insert(name.clone(), stream, size_hint);
                             },
                             _ => { return Err(VideoProcessingError::UnsupportedIO); }

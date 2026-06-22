@@ -20,19 +20,22 @@ pub enum IoType<'a> {
     Callback { filename: String, callback: Box<dyn Fn(&str) -> Result<IoType<'static>, std::io::Error>> },
 
     // Streams
-    ReadStream          { stream: Box<dyn Read + 'a>,          size_hint: Option<u64> },
-    WriteStream         { stream: Box<dyn Write + 'a>,         size_hint: Option<u64> },
-    ReadSeekStream      { stream: Box<dyn ReadSeek + 'a>,      size_hint: Option<u64> },
-    WriteSeekStream     { stream: Box<dyn WriteSeek + 'a>,     size_hint: Option<u64> },
+    // FFmpeg's `StreamIo` (and r3d's global custom-IO registry) own the stream
+    // and may drive its callbacks from any thread, outliving any borrow, so the
+    // stream must be `Send + 'static`.
+    ReadStream          { stream: Box<dyn Read + Send + 'static>,          size_hint: Option<u64> },
+    WriteStream         { stream: Box<dyn Write + Send + 'static>,         size_hint: Option<u64> },
+    ReadSeekStream      { stream: Box<dyn ReadSeek + Send + 'static>,      size_hint: Option<u64> },
+    WriteSeekStream     { stream: Box<dyn WriteSeek + Send + 'static>,     size_hint: Option<u64> },
 
     FileList(BTreeMap<String, IoType<'a>>),
 }
 
 impl<'a> IoType<'a> {
-    pub fn from_read           <T: Read                + 'a>(s: T, size_hint: Option<u64>) -> Self { IoType::ReadStream          { stream: Box::new(s), size_hint } }
-    pub fn from_write          <T: Write               + 'a>(s: T, size_hint: Option<u64>) -> Self { IoType::WriteStream         { stream: Box::new(s), size_hint } }
-    pub fn from_read_seek      <T: Read + Seek         + 'a>(s: T, size_hint: Option<u64>) -> Self { IoType::ReadSeekStream      { stream: Box::new(s), size_hint } }
-    pub fn from_write_seek     <T: Write + Seek        + 'a>(s: T, size_hint: Option<u64>) -> Self { IoType::WriteSeekStream     { stream: Box::new(s), size_hint } }
+    pub fn from_read           <T: Read         + Send + 'static>(s: T, size_hint: Option<u64>) -> Self { IoType::ReadStream          { stream: Box::new(s), size_hint } }
+    pub fn from_write          <T: Write        + Send + 'static>(s: T, size_hint: Option<u64>) -> Self { IoType::WriteStream         { stream: Box::new(s), size_hint } }
+    pub fn from_read_seek      <T: Read + Seek  + Send + 'static>(s: T, size_hint: Option<u64>) -> Self { IoType::ReadSeekStream      { stream: Box::new(s), size_hint } }
+    pub fn from_write_seek     <T: Write + Seek + Send + 'static>(s: T, size_hint: Option<u64>) -> Self { IoType::WriteSeekStream     { stream: Box::new(s), size_hint } }
 }
 
 impl<'a> From<&'a str> for IoType<'a> {

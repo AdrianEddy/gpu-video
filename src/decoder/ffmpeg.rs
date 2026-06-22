@@ -271,7 +271,7 @@ impl FfmpegDecoder {
                 }
                 format::input_with_dictionary(s.as_ref(), options_avdict)?
             },
-            IoType::Bytes(m)                           => { input_from_stream(StreamIo::from_read_seek(Cursor::new(m.into_owned()))?, filename, Some(options_avdict))? },
+            IoType::Bytes(m)                           => { input_from_stream(StreamIo::from_read_seek(Cursor::new(m))?, filename, Some(options_avdict))? },
             IoType::ReadStream          { stream, .. } => { input_from_stream(StreamIo::from_read(stream)?,              filename, Some(options_avdict))? },
             IoType::ReadSeekStream      { stream, .. } => { input_from_stream(StreamIo::from_read_seek(stream)?,         filename, Some(options_avdict))? },
             IoType::WriteStream         { stream, .. } => { input_from_stream(StreamIo::from_write(stream)?,             filename, Some(options_avdict))? },

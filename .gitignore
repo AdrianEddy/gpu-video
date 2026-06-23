@@ -1,0 +1,8 @@
+/target
+Cargo.lock
+*.orig
+*.log
+.vscode/*
+!.vscode/settings.json
+_dev
+docs
